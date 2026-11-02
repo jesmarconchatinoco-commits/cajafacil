@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createInitialState, ensureCatalog } from './logica.mjs'
+import { setSpeechRate } from './voz'
 
 const KEY = 'cajafacil-state-v1'
 
@@ -38,6 +39,7 @@ function normalize(value) {
       contrast: false,
       spacing: false,
       dark: false,
+      slowVoice: false,
       ...value.settings,
     },
   })
@@ -76,6 +78,10 @@ export function StoreProvider({ children }) {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    setSpeechRate(Boolean(state.settings.slowVoice))
+  }, [state.settings.slowVoice])
 
   useEffect(() => {
     if (!ready) return

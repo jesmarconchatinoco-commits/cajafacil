@@ -13,6 +13,11 @@ function screenPalette(dark, contrast) {
     ink: dark ? '#E7FFF0' : colors.greenInk,
     soft: dark ? '#123524' : colors.greenSoft,
     avatarOn: dark ? '#123524' : '#F3FBF6',
+    voidBg: dark ? '#241414' : '#FDF4F3',
+    voidLine: dark ? '#6E3A3A' : '#E4C4C2',
+    voidInk: dark ? '#F0C2C2' : '#8E3A3C',
+    voidHot: dark ? '#F0C2C2' : colors.red,
+    voidOn: dark ? '#3A1C1C' : colors.redSoft,
   }
 }
 
@@ -143,8 +148,12 @@ function createScreenStyles(p) {
     alignItems: 'center',
   },
   tabOn: { backgroundColor: p.soft, borderColor: colors.green },
+  tabIdleRed: { borderColor: p.voidLine },
+  tabOnRed: { backgroundColor: p.voidOn, borderColor: colors.red },
   tabText: { fontWeight: '800', color: p.text },
   tabTextOn: { color: p.ink },
+  tabTextRed: { color: p.voidInk },
+  tabTextOnRed: { color: p.voidHot },
   periodRow: { flexDirection: 'row', gap: 10 },
   empty: { color: p.muted, fontSize: 15, lineHeight: 21, marginVertical: 8 },
   mini: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
@@ -164,12 +173,17 @@ function createScreenStyles(p) {
   },
   detailValue: { fontWeight: '700', color: p.text, flexShrink: 1, textAlign: 'right' },
   voidBanner: {
-    backgroundColor: colors.redSoft,
+    backgroundColor: p.voidOn,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: p.voidLine,
   },
-  voidText: { color: colors.red, fontWeight: '800' },
+  voidText: { color: p.voidInk, fontWeight: '800' },
+  voidRow: { backgroundColor: p.voidBg, borderColor: p.voidLine },
+  voidMoney: { color: p.voidInk },
+  voidEmpty: { color: p.voidInk },
   methodLine: {
     borderRadius: 14,
     paddingHorizontal: 14,
@@ -214,9 +228,10 @@ function createScreenStyles(p) {
   helpCard: { backgroundColor: colors.blueSoft, borderRadius: 16, padding: 16 },
   helpLabel: { color: colors.blue, fontWeight: '800', marginBottom: 6 },
   helpBody: { color: p.text, fontSize: 16, lineHeight: 22 },
-  avatarRow: { flexDirection: 'row', gap: 12 },
+  avatarRow: { flexDirection: 'row', gap: 10 },
   avatarCard: {
     flex: 1,
+    minWidth: 0,
     backgroundColor: p.card,
     borderRadius: 16,
     borderWidth: 1.5,
@@ -350,5 +365,5 @@ function createScreenStyles(p) {
 export function useScreenStyles() {
   const { dark, contrast } = useLook()
   const p = screenPalette(dark, contrast)
-  return useMemo(() => createScreenStyles(p), [p.bg, p.card, p.text, p.muted, p.line, p.ink, p.soft, p.avatarOn])
+  return useMemo(() => createScreenStyles(p), [p.bg, p.card, p.text, p.muted, p.line, p.ink, p.soft, p.avatarOn, p.voidBg, p.voidLine, p.voidInk, p.voidHot, p.voidOn])
 }

@@ -5,6 +5,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Switch,
   useWindowDimensions,
   View,
@@ -155,7 +156,22 @@ export function SaleAmount() {
   }
 
   function typeBackspace() {
-    setTyped((current) => current.slice(0, -1))
+    if (typed) {
+      setTyped((current) => current.slice(0, -1))
+      poke()
+      return
+    }
+    if (linesRef.current.length) {
+      remember(linesRef.current.slice(0, -1))
+      poke()
+    }
+  }
+
+  function typeEquals() {
+    if (entry > 0) {
+      addAmounts([entry])
+      setTyped('')
+    }
     poke()
   }
 
@@ -276,6 +292,7 @@ export function SaleAmount() {
         <View style={styles.keyArea}>
           <Keypad
             onAdd={() => { addAmounts([entry]); setTyped(''); poke() }}
+            onEquals={typeEquals}
             addEnabled={entry > 0}
             onDigit={typeDigit}
             onDot={typeDot}
@@ -469,10 +486,10 @@ export function Sales() {
       <Title>Ventas de hoy</Title>
       <View style={styles.tabs}>
         <Tab label="Guardadas" active={tab === 'guardadas'} onPress={() => setTab('guardadas')} />
-        <Tab label="Anuladas" active={tab === 'anuladas'} onPress={() => setTab('anuladas')} />
+        <Tab label="Anuladas" tone="red" active={tab === 'anuladas'} onPress={() => setTab('anuladas')} />
       </View>
       {rows.length === 0 ? (
-        <Text style={styles.empty}>
+        <Text style={[styles.empty, tab === 'anuladas' && styles.voidEmpty]}>
           {tab === 'anuladas'
             ? 'No hay ventas anuladas. Cuando anulas una, aparece aquí y sale de la caja.'
             : 'Todavía no anotas ventas hoy.'}
@@ -485,7 +502,7 @@ export function Sales() {
               accessibilityRole="button"
               accessibilityLabel={`Venta de ${formatMoney(sale.cents)}`}
               onPress={() => push('saleDetail', { saleId: sale.id })}
-              style={({ pressed }) => [styles.personRow, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.personRow, tab === 'anuladas' && styles.voidRow, pressed && { opacity: 0.8 }]}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.personMeta}>{formatClock(sale.at)}</Text>
@@ -502,7 +519,7 @@ export function Sales() {
                   </Text>
                 </View>
               </View>
-              <Text style={styles.personMoney}>{formatMoney(sale.cents)} ›</Text>
+              <Text style={[styles.personMoney, tab === 'anuladas' && styles.voidMoney]}>{formatMoney(sale.cents)} ›</Text>
             </Pressable>
           ))}
         </View>
@@ -547,8 +564,8 @@ export function SaleDetail() {
             <Text style={styles.voidText}>Esta venta está anulada</Text>
           </View>
         ) : null}
-        <View style={styles.detailCard}>
-          <MoneyBig cents={sale.cents} />
+        <View style={[styles.detailCard, sale.voided && styles.voidRow]}>
+          <MoneyBig cents={sale.cents} color={sale.voided ? StyleSheet.flatten(styles.voidMoney).color : colors.text} />
           <DetailRow label="Hora" value={formatWhen(sale.at)} />
           <DetailRow label="Cómo pagó" value={methods[sale.method].label} />
           {sale.kind === 'cobro' ? <DetailRow label="Tipo" value={`Cobro de ${sale.clientName}`} /> : null}

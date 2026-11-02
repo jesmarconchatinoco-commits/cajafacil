@@ -74,12 +74,12 @@ export const helpText = {
   code: 'El código tiene 6 números. En esta prueba puedes usar 123456.',
   pin: 'La clave tiene 6 números. La vas a escribir cada vez que entres.',
   avatar:
-    'Elige cómo quieres verte en el inicio. Si apagas la imagen, se muestra la inicial de tu nombre.',
+    'Elige una mujer o un hombre. El que tocas se mueve. Si apagas la imagen, se muestra la inicial de tu nombre.',
   login:
     'Iniciar sesión pide tu celular y tu clave. La cuenta de demostración es Flor: 999 888 777, clave 123456.',
   home:
-    'Nueva venta anota un cobro con la calculadora. Ventas de hoy lista lo del día. Balance junta la caja. Fiados es lo que te deben. Abajo, los iconos llevan a Inicio, Venta, Balance, Fiados y Cuenta. El botón de Audio explica cada pantalla.',
-  sale: 'Escribe el monto, usa el punto para los centavos y toca el signo más. También puedes tocar Hablar y decirlo. La calculadora junta todos los montos. Después marcas efectivo, Yape, Plin o fiado. El número de operación se escribe o se dice con el botón Decir.',
+    'Nueva venta anota un cobro con la calculadora. Ventas de hoy lista lo del día. Balance junta la caja. Fiados es lo que te deben. Abajo, los iconos llevan a Inicio, Venta, Balance, Fiados y Cuenta. Escuchar explica cada pantalla.',
+  sale: 'Escribe el monto, usa el punto para los centavos y toca el signo más. El igual deja el total. La flecha roja borra el último número. También puedes tocar Hablar y decirlo. Después marcas efectivo, Yape, Plin o fiado. El número de operación se escribe o se dice con el botón Decir.',
   sales:
     'Aquí están las ventas de hoy. Abre una para ver el detalle. Si te equivocaste, puedes anularla.',
   balance:
@@ -93,7 +93,7 @@ export const helpText = {
   person:
     'Arriba ves cuánto te debe. Anotar fiado suma deuda. Cobrar registra el pago y entra a la caja.',
   a11y:
-    'Desde aquí agrandas la letra, subes el contraste, pones el fondo negro y separas el texto. El botón de Audio está en cada pantalla.',
+    'Desde aquí agrandas la letra, subes el contraste, pones el fondo negro, separas el texto y haces que Escuchar hable más despacio. Contraste y fondo negro se usan de uno en uno. Escuchar está en cada pantalla.',
 }
 
 export const voiceText = {
@@ -106,13 +106,13 @@ export const voiceText = {
   pin:
     'Aquí eliges tu clave de seis números. Esa clave la escribes cada vez que entras a tu caja.',
   avatar:
-    'Aquí eliges cómo quieres verte en el inicio. Si apagas la foto, se muestra la primera letra de tu nombre.',
+    'Aquí eliges cómo quieres verte. Hay mujeres y hombres distintos. El que tocas se mueve. Si apagas la foto, se muestra la primera letra de tu nombre.',
   login:
     'Este módulo es Iniciar sesión. Escribe tu celular y tu clave. La cuenta de prueba es Flor. Su celular es nueve, nueve, nueve, ocho, ocho, ocho, siete, siete, siete. Su clave es uno, dos, tres, cuatro, cinco, seis.',
   home:
     'Este es el inicio de tu bodega. Nueva venta anota un cobro con la calculadora. Ventas de hoy muestra lo del día. Balance junta la caja. Fiados es lo que te deben. Abajo hay iconos de celular: Inicio, Venta, Balance, Fiados y Cuenta. Cerrar sesión te saca de la caja.',
   sale:
-    'Este módulo anota una venta. Escribes el monto, el punto si hay centavos, y tocas el signo más. También puedes tocar Hablar y decir el monto, por ejemplo cinco soles. La calculadora suma cada monto. Después eliges si pagaron en efectivo, con Yape, con Plin o se lo llevaron fiado. El número de operación se puede decir tocando Decir.',
+    'Este módulo anota una venta. Escribes el monto, el punto si hay centavos, y tocas el signo más para sumar otro. El botón igual deja el total. La flecha roja borra el último número o el último monto sumado. También puedes tocar Hablar y decir el monto, por ejemplo cinco soles. Después eliges si pagaron en efectivo, con Yape, con Plin o se lo llevaron fiado. El número de operación se puede decir tocando Decir.',
   sales:
     'Este módulo muestra las ventas de hoy. Abre una para ver el detalle. Si te equivocaste, puedes anularla. La app pregunta antes de anular.',
   balance:
@@ -126,5 +126,5 @@ export const voiceText = {
   person:
     'Esta pantalla es de una persona. Arriba ves cuánto te debe. Anotar fiado suma deuda. Cobrar registra el pago y el dinero entra a la caja.',
   a11y:
-    'Este módulo ajusta la pantalla para leer con más calma. Puedes poner la letra normal, grande o muy grande, subir el contraste, cambiar el fondo de blanco a negro y separar las líneas. El botón de Audio está en cada módulo y explica para qué sirve.',
+    'Este módulo ajusta la pantalla para leer con más calma. Puedes poner la letra normal, grande o muy grande, subir el contraste, cambiar el fondo de blanco a negro y separar las líneas. Contraste y fondo negro se usan de uno en uno. También puedes hacer que Escuchar hable más despacio. Escuchar está en cada módulo y explica para qué sirve.',
 }

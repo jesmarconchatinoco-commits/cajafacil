@@ -86,16 +86,17 @@ export function DetailRow({ label, value }) {
   )
 }
 
-export function Tab({ label, active, onPress }) {
+export function Tab({ label, active, onPress, tone }) {
   const styles = useScreenStyles()
+  const red = tone === 'red'
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={[styles.tab, active && styles.tabOn]}
+      style={[styles.tab, red && styles.tabIdleRed, active && (red ? styles.tabOnRed : styles.tabOn)]}
     >
-      <Text style={[styles.tabText, active && styles.tabTextOn]} numberOfLines={2}>{active ? `✓  ${label}` : label}</Text>
+      <Text style={[styles.tabText, red && styles.tabTextRed, active && (red ? styles.tabTextOnRed : styles.tabTextOn)]} numberOfLines={2}>{active ? `✓  ${label}` : label}</Text>
     </Pressable>
   )
 }

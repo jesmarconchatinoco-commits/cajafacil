@@ -106,7 +106,6 @@ export function Home() {
           { label: 'Ventas de hoy', variant: 'outline', onPress: () => push('sales') },
           { label: 'Balance', variant: 'outline', onPress: () => push('balance') },
           { label: 'Fiados', variant: 'brown', onPress: () => push('fiados') },
-          { label: 'Accesibilidad', variant: 'outline', onPress: () => push('a11y') },
           { label: 'Cerrar sesión', variant: 'red', onPress: () => setAskOut(true) },
         ].map((item) => (
           <View key={item.label} style={{ width: wide ? '48%' : '100%', flexGrow: wide ? 1 : 0 }}>

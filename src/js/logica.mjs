@@ -194,7 +194,7 @@ export function createInitialState(now = new Date()) {
   return {
     seq: 20,
     sessionUserId: null,
-    settings: { confirmLeave: true, textSize: 'normal', contrast: false, spacing: false, dark: false },
+    settings: { confirmLeave: true, textSize: 'normal', contrast: false, spacing: false, dark: false, slowVoice: false },
     users: [
       {
         id: 'flor',
@@ -428,7 +428,8 @@ export function updateAccount(state, input) {
   const next = clone(state)
   const user = next.users.find((item) => item.id === next.sessionUserId)
   if (!user) return { ok: false, error: 'Entra a tu cuenta para configurar.', state }
-  if (input.avatar === 'woman' || input.avatar === 'man') user.avatar = input.avatar
+  const avatars = ['woman', 'rosa', 'abuela', 'man', 'abuelo', 'carlos']
+  if (avatars.includes(input.avatar)) user.avatar = input.avatar
   if (typeof input.usePhoto === 'boolean') user.usePhoto = input.usePhoto
   const yape = phoneDigits(input.yapePhone)
   const plin = phoneDigits(input.plinPhone)

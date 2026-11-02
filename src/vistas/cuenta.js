@@ -54,6 +54,7 @@ import {
   Keypad,
   Logo,
   MethodOption,
+  AvatarPicker,
   ModalCard,
   MoneyBig,
   Note,
@@ -241,32 +242,10 @@ export function AvatarPick() {
       <Step>Paso 4 de 4</Step>
       <Title>Elige tu imagen</Title>
       <ErrorText>{error}</ErrorText>
-      <View style={styles.avatarRow}>
-        {[
-          { id: 'woman', label: 'Mujer' },
-          { id: 'man', label: 'Hombre' },
-        ].map((option) => {
-          const selected = draft.avatar === option.id
-          return (
-            <Pressable
-              key={option.id}
-              accessibilityRole="button"
-              accessibilityLabel={option.label}
-              accessibilityState={{ selected }}
-              onPress={() => setDraft((current) => ({ ...current, avatar: option.id }))}
-              style={[styles.avatarCard, selected && styles.avatarSelected]}
-            >
-              {selected ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>✓</Text>
-                </View>
-              ) : null}
-              <Avatar kind={option.id} size={72} />
-              <Text style={styles.avatarLabel}>{option.label}</Text>
-            </Pressable>
-          )
-        })}
-      </View>
+      <AvatarPicker
+        value={draft.avatar}
+        onChange={(avatar) => setDraft((current) => ({ ...current, avatar }))}
+      />
       <View style={styles.toggleCard}>
         <View style={{ flex: 1 }}>
           <Text style={styles.toggleTitle}>Usar esta imagen</Text>
@@ -412,27 +391,10 @@ export function Settings() {
           </View>
         ) : null}
         <Text style={styles.toggleTitle}>Tu icono</Text>
-        <View style={styles.avatarRow}>
-          {[
-            { id: 'woman', label: 'Mujer' },
-            { id: 'man', label: 'Hombre' },
-          ].map((option) => {
-            const selected = avatar === option.id
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityRole="button"
-                accessibilityLabel={option.label}
-                accessibilityState={{ selected }}
-                onPress={() => { setAvatar(option.id); setSaved(false) }}
-                style={[styles.avatarCard, selected && styles.avatarSelected]}
-              >
-                <Avatar kind={option.id} size={72} />
-                <Text style={styles.avatarLabel}>{option.label}</Text>
-              </Pressable>
-            )
-          })}
-        </View>
+        <AvatarPicker
+          value={avatar}
+          onChange={(next) => { setAvatar(next); setSaved(false) }}
+        />
         <View style={styles.toggleCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.toggleTitle}>Usar esta imagen</Text>
