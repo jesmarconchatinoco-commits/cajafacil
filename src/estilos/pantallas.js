@@ -23,7 +23,7 @@ function screenPalette(dark, contrast) {
 
 function createScreenStyles(p) {
   return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: p.bg },
+  screen: { flex: 1, minHeight: 0, backgroundColor: p.bg },
   scroll: { padding: 20, paddingTop: 8, flexGrow: 1 },
   saleBody: { flex: 1, minHeight: 0 },
   footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 18, backgroundColor: p.bg },

@@ -24,8 +24,8 @@ function Router() {
   const guest = ['splash', 'register', 'code', 'pin', 'avatar', 'login'].includes(route.name)
   const showDock = Boolean(state.sessionUserId) && !guest
   return (
-    <View style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, minHeight: 0 }}>
+      <View style={{ flex: 1, minHeight: 0 }}>
         <Screen />
       </View>
       {showDock ? <Dock /> : null}

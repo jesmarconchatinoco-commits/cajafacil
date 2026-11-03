@@ -6,7 +6,9 @@ export const shell = {
     flex: 1,
     backgroundColor: '#E4E0D4',
     alignItems: 'center',
-    ...(Platform.OS === 'web' ? { width: '100%', height: '100vh', minHeight: '100vh' } : null),
+    ...(Platform.OS === 'web'
+      ? { width: '100%', height: '100vh', maxHeight: '100dvh', minHeight: 0, overflow: 'hidden' }
+      : null),
   },
   phone: {
     width: '100%',
