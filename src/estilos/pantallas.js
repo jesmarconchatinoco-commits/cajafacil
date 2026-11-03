@@ -349,7 +349,7 @@ function createScreenStyles(p) {
   payAmount: { color: colors.purple, fontSize: 34, fontWeight: '800', marginTop: 2 },
   payPhone: { color: p.text, fontSize: 16, fontWeight: '800', marginTop: 4, textAlign: 'center' },
   payField: { alignSelf: 'stretch', marginTop: 16 },
-  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  noteRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   noteListen: {
     minWidth: 76,
     minHeight: 56,

@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  TextInput,
   View,
 } from 'react-native'
 import { colors, helpText, methods, periods, quickAmounts, voiceText } from '../estilos/tema'
@@ -45,7 +44,7 @@ import {
 } from '../js/logica.mjs'
 import { useApp } from '../js/estado'
 import { canListen, startListening } from '../js/escucha'
-import { parseSpokenAmounts, sumCents, typedCents } from '../js/montos.mjs'
+import { createSpeechLedger, sumCents, typedCents } from '../js/montos.mjs'
 import { usePhone } from '../js/telefono'
 import { speakAloud, stopAloud } from '../js/voz'
 import {
@@ -55,6 +54,7 @@ import {
   Field,
   Logo,
   MethodOption,
+  Keypad,
   MicMark,
   ModalCard,
   MoneyBig,
@@ -75,10 +75,9 @@ import { DetailRow, Frame, Tab, cartItems, productText } from './marco'
 export function SaleAmount() {
   const styles = useScreenStyles()
   const { draft, setDraft, pop, push, clearSale, goHome } = useApp()
-  const { pad, short } = usePhone()
+  const { pad, short, narrow } = usePhone()
   const [ask, setAsk] = useState(null)
   const [typed, setTyped] = useState('')
-  const [amountFocused, setAmountFocused] = useState(false)
   const [hearing, setHearing] = useState(false)
   const [said, setSaid] = useState('')
   const [hearNote, setHearNote] = useState('')
@@ -87,8 +86,12 @@ export function SaleAmount() {
   const total = sumCents(lines) + entry
   const stopHear = useRef(null)
   const linesRef = useRef(lines)
+  const typedRef = useRef('')
+  const clearedAt = useRef(0)
   const saidRef = useRef('')
   const heardBase = useRef([])
+  const ledger = useRef(null)
+  const [speechView, setSpeechView] = useState(null)
   const hearingRef = useRef(false)
   linesRef.current = lines
 
@@ -115,27 +118,67 @@ export function SaleAmount() {
   }
 
   function addTypedAmount() {
-    if (entry <= 0) return
-    addAmounts([entry])
+    const cents = typedCents(typedRef.current)
+    if (cents <= 0) return
+    const nextLines = [...linesRef.current, cents]
+    clearedAt.current = Date.now()
+    typedRef.current = ''
     setTyped('')
+    remember(nextLines)
     setDraft((current) => ({
       ...current,
       sale: { ...current.sale, pendingCents: 0 },
     }))
   }
 
-  function changeTypedAmount(text) {
-    const normalized = text.replace(',', '.').replace(/[^\d.]/g, '')
-    const [whole = '', ...fractionParts] = normalized.split('.')
-    const fraction = fractionParts.join('').slice(0, 2)
-    const next = fractionParts.length
-      ? `${whole.slice(0, 6)}.${fraction}`
-      : whole.slice(0, 6)
+  function writeAmount(next) {
+    typedRef.current = next
     setTyped(next)
     setDraft((current) => ({
       ...current,
       sale: { ...current.sale, pendingCents: typedCents(next) },
     }))
+  }
+
+  function typeDigit(digit) {
+    if (hearingRef.current) finishHear()
+    const current = typedRef.current
+    if (current.includes('.')) {
+      const frac = current.split('.')[1]
+      if (frac.length >= 2) return
+      writeAmount(`${current}${digit}`)
+      return
+    }
+    if (current === '0') {
+      writeAmount(String(digit))
+      return
+    }
+    if (current.length >= 6) return
+    writeAmount(`${current}${digit}`)
+  }
+
+  function typeDot() {
+    if (hearingRef.current) finishHear()
+    const current = typedRef.current
+    if (current.includes('.')) return
+    writeAmount(`${current || '0'}.`)
+  }
+
+  function typeBackspace() {
+    if (hearingRef.current) finishHear()
+    if (typedRef.current) {
+      writeAmount(typedRef.current.slice(0, -1))
+      return
+    }
+    if (linesRef.current.length) remember(linesRef.current.slice(0, -1))
+  }
+
+  function centsToTyped(cents) {
+    const whole = Math.floor(cents / 100)
+    const frac = cents % 100
+    if (!frac) return String(whole)
+    if (frac % 10 === 0) return `${whole}.${frac / 10}`
+    return `${whole}.${String(frac).padStart(2, '0')}`
   }
 
   function finishHear() {
@@ -145,11 +188,27 @@ export function SaleAmount() {
     stopHear.current = null
     if (stop) stop()
     setHearing(false)
-    const found = parseSpokenAmounts(saidRef.current)
+    const view = ledger.current ? ledger.current.view() : { base: heardBase.current, amounts: [] }
     saidRef.current = ''
     setSaid('')
-    if (!found.length) return
-    remember([...heardBase.current, ...found])
+    setSpeechView(null)
+    typedRef.current = ''
+    setTyped('')
+    const nextLines = [...view.base, ...view.amounts]
+    const sameBase = nextLines.length === heardBase.current.length
+      && nextLines.every((cents, index) => cents === heardBase.current[index])
+    if (!view.amounts.length && sameBase) {
+      setDraft((current) => ({
+        ...current,
+        sale: { ...current.sale, pendingCents: 0 },
+      }))
+      return
+    }
+    linesRef.current = nextLines
+    setDraft((current) => ({
+      ...current,
+      sale: { ...current.sale, lines: nextLines, cents: sumCents(nextLines), products: [], pendingCents: 0 },
+    }))
   }
 
   function leave(where) {
@@ -164,13 +223,11 @@ export function SaleAmount() {
   }
 
   function goPay() {
+    const wasHearing = hearingRef.current
     finishHear()
-    const cents = addAmounts(entry > 0 ? [entry] : [])
-    setTyped('')
-    setDraft((current) => ({
-      ...current,
-      sale: { ...current.sale, pendingCents: 0 },
-    }))
+    const pending = wasHearing ? 0 : typedCents(typedRef.current)
+    const cents = pending > 0 ? addAmounts([pending]) : sumCents(linesRef.current)
+    if (!wasHearing) writeAmount('')
     if (cents <= 0) return
     push('salePay')
   }
@@ -181,13 +238,15 @@ export function SaleAmount() {
       return
     }
     if (!canListen()) {
-      const message = 'Aquí no puedo escuchar. Escribe el monto o elige un importe.'
+      const message = 'Aquí no puedo escuchar. Usa la calculadora para escribir el monto.'
       setHearNote(message)
       speakAloud(message)
       return
     }
-    if (entry > 0) addTypedAmount()
+    if (typedCents(typedRef.current) > 0) addTypedAmount()
     heardBase.current = linesRef.current.slice()
+    ledger.current = createSpeechLedger(heardBase.current)
+    setSpeechView(ledger.current.view())
     saidRef.current = ''
     setSaid('')
     setHearNote('')
@@ -195,9 +254,24 @@ export function SaleAmount() {
     setHearing(true)
     stopAloud()
     stopHear.current = startListening({
-      onLive: (text) => {
+      onLive: (text, generation) => {
+        if (!hearingRef.current || !ledger.current) return
         saidRef.current = text
         setSaid(text)
+        const step = ledger.current.push(text, generation)
+        const view = ledger.current.view()
+        setSpeechView(view)
+        const next = view.amounts.length ? centsToTyped(view.amounts[view.amounts.length - 1]) : ''
+        typedRef.current = next
+        setTyped(next)
+        if (step.restart) {
+          setHearNote('Quité el último monto.')
+          if (stopHear.current) stopHear.current.restart()
+        }
+      },
+      onBreak: () => {
+        if (!hearingRef.current || !ledger.current) return
+        setSpeechView(ledger.current.breakSession())
       },
       onPhrase: () => {},
       onError: (code) => {
@@ -212,8 +286,11 @@ export function SaleAmount() {
     })
   }
 
-  const liveTotal = sumCents(heardBase.current) + sumCents(parseSpokenAmounts(said))
-  const shown = hearing ? liveTotal : total
+  const spokenNow = hearing && speechView ? speechView.amounts : []
+  const registered = sumCents(lines)
+  const shown = hearing && speechView ? sumCents(speechView.base) + sumCents(spokenNow) : registered + entry
+  const hearingText = spokenNow.length ? centsToTyped(spokenNow[spokenNow.length - 1]) : ''
+  const boxValue = hearing ? hearingText : typed
 
   return (
     <View style={styles.screen}>
@@ -232,76 +309,53 @@ export function SaleAmount() {
       >
         <Step>Paso 1 de 2</Step>
         <Title>¿Cuánto es la venta?</Title>
-        <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 10 }}>
-          <View style={[styles.amountBox, { flex: 1, minWidth: 0, marginBottom: 14, borderColor: hearing ? colors.red : colors.blue }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>S/</Text>
-              <TextInput
-                accessibilityLabel="Monto de la venta en soles"
-                keyboardType="decimal-pad"
-                returnKeyType="done"
-                blurOnSubmit
-                value={amountFocused ? typed : (typed ? (Number(typed) || 0).toFixed(2) : '')}
-                placeholder="0.00"
-                placeholderTextColor={colors.muted}
-                underlineColorAndroid="transparent"
-                selectionColor={colors.blue}
-                onFocus={() => setAmountFocused(true)}
-                onBlur={() => setAmountFocused(false)}
-                onChangeText={changeTypedAmount}
-                onSubmitEditing={addTypedAmount}
-                style={{
-                  color: colors.text,
-                  fontSize: 40,
-                  fontWeight: '800',
-                  letterSpacing: -0.8,
-                  textAlign: 'center',
-                  flex: 1,
-                  borderWidth: 0,
-                  backgroundColor: 'transparent',
-                  padding: 0,
-                }}
-              />
-            </View>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Agregar monto al registro"
-            disabled={entry <= 0}
-            onPress={addTypedAmount}
-            style={({ pressed }) => [
-              {
-                width: 104,
-                minHeight: 76,
-                borderRadius: 16,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: entry > 0 ? colors.green : colors.disabled,
-              },
-              pressed && entry > 0 && { opacity: 0.86 },
-            ]}
-          >
-            <Text style={{ color: entry > 0 ? colors.white : colors.disabledText, fontWeight: '800'}}>
-              Agregar
+        <View
+          accessibilityLabel="Monto de la venta en soles"
+          style={[styles.amountBox, { marginBottom: 12, minHeight: short ? 72 : 84, justifyContent: 'center', borderColor: hearing ? colors.red : colors.blue }]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', paddingHorizontal: 12 }}>
+            <Text style={{ color: colors.text, fontSize: narrow ? 22 : 26, fontWeight: '800', marginRight: 8 }}>S/</Text>
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.6}
+              style={{
+                color: boxValue ? colors.text : colors.muted,
+                fontSize: boxValue.length > 6 ? (narrow ? 28 : 32) : short ? 34 : narrow ? 36 : 44,
+                fontWeight: '800',
+                flexShrink: 1,
+              }}
+            >
+              {boxValue || '0.00'}
             </Text>
-          </Pressable>
+          </View>
         </View>
-        <View style={styles.chips}>
+        <View style={{ marginBottom: 10 }}>
+          <Keypad
+            onAdd={() => { if (hearingRef.current) finishHear(); else addTypedAmount() }}
+            onEquals={() => { if (hearingRef.current) finishHear(); else if (typedCents(typedRef.current) > 0) addTypedAmount() }}
+            addEnabled={entry > 0 || (hearing && spokenNow.length > 0)}
+            onDigit={typeDigit}
+            onDot={typeDot}
+            onDelete={typeBackspace}
+          />
+        </View>
+        <View style={[styles.chips, { marginTop: 2 }]}>
           {quickAmounts.filter((amount) => [500, 1000, 2000].includes(amount.cents)).map((amount) => (
             <Pressable
               key={amount.cents}
               accessibilityRole="button"
               accessibilityLabel={`Sumar ${amount.label}`}
               onPress={() => addAmounts([amount.cents])}
-              style={styles.chip}
+              style={[styles.chip, { flexGrow: 1, flexBasis: 0, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 }]}
             >
-              <Text style={[styles.chipText, { color: '#000000' }]}>{amount.label}</Text>
+              <Text style={[styles.chipText, { color: '#000000', fontSize: narrow ? 16 : 18 }]}>{amount.label}</Text>
             </Pressable>
           ))}
         </View>
         {lines.length ? (
           <View style={{ marginTop: 6, marginBottom: 12, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
-            <Text style={{ color: colors.text, fontWeight: '800' }}>Tu registro:</Text>
+            <Text style={{ color: colors.text, fontWeight: '800', fontSize: 16 }}>Tu registro:</Text>
             {lines.map((cents, index) => (
               <View key={`${cents}-${index}`} style={{ flexDirection: 'row', alignItems: 'center' }}>
                 {index > 0 ? <Text style={{ color: colors.green, fontWeight: '800' }}> + </Text> : null}
@@ -310,7 +364,7 @@ export function SaleAmount() {
                   accessibilityLabel={`Quitar ${formatMoney(cents)}`}
                   onPress={() => remember(lines.filter((_, item) => item !== index))}
                 >
-                  <Text style={{ color: colors.blue, fontWeight: '700' }}>{formatMoney(cents)}</Text>
+                  <Text style={{ color: colors.blue, fontWeight: '700', fontSize: 16 }}>{formatMoney(cents)}</Text>
                 </Pressable>
               </View>
             ))}
@@ -318,7 +372,7 @@ export function SaleAmount() {
         ) : null}
         <View style={[styles.cajaCard, { marginTop: 8, marginBottom: 0 }]}>
           <Text style={styles.cajaLabel}>Total de la venta</Text>
-          <Text style={styles.cajaMoney}>{formatMoney(total)}</Text>
+          <Text style={styles.cajaMoney}>{formatMoney(shown)}</Text>
         </View>
       </ScrollView>
       <View style={{ paddingHorizontal: pad, paddingTop: 6, paddingBottom: short ? 8 : 14, gap: 8 }}>
@@ -333,7 +387,7 @@ export function SaleAmount() {
               borderWidth: 2,
               borderColor: hearing ? colors.red : colors.green,
               marginBottom: 0,
-              minHeight: 52,
+              minHeight: narrow ? 56 : 60,
             },
             pressed && { opacity: 0.86 },
           ]}
@@ -391,7 +445,7 @@ export function SalePay() {
       <Frame
         onBack={() => pop()}
         dirty={sale.cents > 0}
-        helpTopic="sale"
+        helpTopic="salePay"
         footer={<Button label={buttonLabel} variant={buttonVariant} disabled={!canSave} onPress={save} />}
       >
         <Step>Paso 2 de 2</Step>
@@ -473,7 +527,7 @@ export function SaleSaved() {
   return (
     <Frame
       onBack={() => go([{ name: 'home' }])}
-      helpTopic="sale"
+      helpTopic="saleSaved"
       footer={
         <View style={{ gap: 10 }}>
           <Button

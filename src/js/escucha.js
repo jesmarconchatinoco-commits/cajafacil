@@ -3,18 +3,29 @@ export function canListen() {
   return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
 }
 
-export function startListening({ onLive, onPhrase, onEnd, onError }) {
+export function startListening({ onLive, onPhrase, onEnd, onError, onBreak }) {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition
   const heard = new Recognition()
   let committed = 0
+  let generation = 0
   let stopped = false
   heard.lang = 'es-PE'
   heard.continuous = true
   heard.interimResults = true
   heard.maxAlternatives = 1
+  function boot() {
+    committed = 0
+    generation += 1
+    try {
+      heard.start()
+    } catch {
+      onEnd()
+    }
+  }
   heard.onresult = (event) => {
     let live = ''
     let fresh = ''
+    const ticket = generation
     for (let index = 0; index < event.results.length; index += 1) {
       const piece = event.results[index][0].transcript
       live += `${piece} `
@@ -23,8 +34,8 @@ export function startListening({ onLive, onPhrase, onEnd, onError }) {
         committed = index + 1
       }
     }
-    if (onLive) onLive(live.trim())
-    if (fresh.trim()) onPhrase(fresh.trim())
+    if (onLive) onLive(live.trim(), ticket)
+    if (fresh.trim() && onPhrase) onPhrase(fresh.trim())
   }
   heard.onerror = (event) => {
     if (event.error === 'no-speech' || event.error === 'aborted') return
@@ -35,14 +46,11 @@ export function startListening({ onLive, onPhrase, onEnd, onError }) {
       onEnd()
       return
     }
-    try {
-      heard.start()
-    } catch {
-      onEnd()
-    }
+    if (onBreak) onBreak(generation)
+    boot()
   }
-  heard.start()
-  return () => {
+  boot()
+  const stop = () => {
     stopped = true
     heard.onend = null
     heard.onerror = null
@@ -52,4 +60,16 @@ export function startListening({ onLive, onPhrase, onEnd, onError }) {
       /* ya estaba detenido */
     }
   }
+  stop.restart = () => {
+    try {
+      heard.abort()
+    } catch {
+      try {
+        heard.stop()
+      } catch {
+        /* ya estaba detenido */
+      }
+    }
+  }
+  return stop
 }

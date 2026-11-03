@@ -21,7 +21,7 @@ import {
   voidSale,
 } from './logica.mjs'
 import { qrMatrix } from './qr.mjs'
-import { parseSpokenAmounts, spokenDigits, sumCents, typedCents } from './montos.mjs'
+import { applySpeech, createSpeechLedger, parseSpokenAmounts, spokenDigits, sumCents, typedCents } from './montos.mjs'
 
 const now = new Date(2026, 9, 30, 18, 0, 0)
 
@@ -225,6 +225,22 @@ test('la voz suma los montos dichos', () => {
   assert.deepEqual(parseSpokenAmounts('siete cincuenta'), [750])
   assert.deepEqual(parseSpokenAmounts('7.5'), [750])
   assert.deepEqual(parseSpokenAmounts('754'), [754])
+  assert.deepEqual(parseSpokenAmounts('sumar cinco sumar tres'), [500, 300])
+  assert.deepEqual(parseSpokenAmounts('cinco soles borrar'), [])
+  assert.deepEqual(parseSpokenAmounts('cinco y diez restar'), [500])
+  assert.deepEqual(parseSpokenAmounts('borrar cinco'), [])
+  assert.deepEqual(applySpeech('borrar', [500, 200]), { base: [500], amounts: [], eraseOnly: true })
+  const ledger = createSpeechLedger([200])
+  assert.deepEqual(ledger.push('cinco y diez', 1).amounts, [500, 1000])
+  const erased = ledger.push('cinco y diez borrar', 1)
+  assert.equal(erased.restart, true)
+  assert.deepEqual(erased.amounts, [500])
+  assert.deepEqual(ledger.push('cinco y diez', 1).amounts, [500])
+  assert.deepEqual(ledger.push('cinco y diez', 2).amounts, [500])
+  assert.deepEqual(ledger.push('tres', 3).amounts, [500, 300])
+  assert.deepEqual(ledger.push('borrar', 3).amounts, [500])
+  assert.deepEqual(ledger.push('borrar', 4).amounts, [])
+  assert.deepEqual(ledger.push('borrar', 5).base, [])
   assert.equal(sumCents([500, 1000]), 1500)
 })
 

@@ -204,12 +204,40 @@ export function spokenDigits(text) {
   return digits
 }
 
-export function parseSpokenAmounts(text) {
+const ADD_WORDS = new Set(['y', 'mas', 'luego', 'suma', 'sumar', 'sumale', 'agrega', 'agregar', 'agregale'])
+const ERASE_WORDS = new Set([
+  'borrar',
+  'borra',
+  'borre',
+  'borralo',
+  'borrala',
+  'borrarlo',
+  'borrarla',
+  'restar',
+  'resta',
+  'reste',
+  'restalo',
+  'restala',
+  'restarlo',
+])
+
+function readSpoken(text) {
   const tokens = tokenize(text)
   const amounts = []
+  let sawErase = false
+  let sawMoney = false
+  let skipNext = false
   let index = 0
   while (index < tokens.length) {
-    if (tokens[index] === 'y' || tokens[index] === 'mas' || tokens[index] === 'luego') {
+    const token = tokens[index]
+    if (ADD_WORDS.has(token)) {
+      index += 1
+      continue
+    }
+    if (ERASE_WORDS.has(token)) {
+      sawErase = true
+      if (amounts.length) amounts.pop()
+      else skipNext = true
       index += 1
       continue
     }
@@ -218,8 +246,75 @@ export function parseSpokenAmounts(text) {
       index += 1
       continue
     }
-    if (read.cents > 0 && read.cents <= 99999999) amounts.push(read.cents)
+    const keep = read.cents > 0 && read.cents <= 99999999
+    if (keep) sawMoney = true
+    if (keep && !skipNext) amounts.push(read.cents)
+    skipNext = false
     index = Math.max(read.next, index + 1)
   }
-  return amounts
+  return { amounts, sawErase, eraseOnly: sawErase && !sawMoney }
+}
+
+export function parseSpokenAmounts(text) {
+  return readSpoken(text).amounts
+}
+
+function spokenKey(text) {
+  return tokenize(text).join(' ')
+}
+
+export function createSpeechLedger(baseLines) {
+  const state = {
+    base: Array.isArray(baseLines) ? baseLines.slice() : [],
+    locked: [],
+    session: [],
+    ignoreBelow: 0,
+    previousText: '',
+    skipText: '',
+  }
+  function view() {
+    return {
+      base: state.base.slice(),
+      amounts: [...state.locked, ...state.session],
+    }
+  }
+  return {
+    push(text, generation = 0) {
+      if (generation < state.ignoreBelow) return { ...view(), restart: false }
+      const parsed = readSpoken(text)
+      const key = spokenKey(text)
+      if (!parsed.sawErase) {
+        if (key && key === state.skipText) return { ...view(), restart: false }
+        state.skipText = ''
+        state.previousText = key
+        state.session = parsed.amounts
+        return { ...view(), restart: false }
+      }
+      if (parsed.eraseOnly) {
+        if (state.session.length) state.session = state.session.slice(0, -1)
+        else if (state.locked.length) state.locked = state.locked.slice(0, -1)
+        else if (state.base.length) state.base = state.base.slice(0, -1)
+      } else {
+        state.session = parsed.amounts
+      }
+      state.locked = [...state.locked, ...state.session]
+      state.session = []
+      state.skipText = state.previousText
+      state.ignoreBelow = generation + 1
+      return { ...view(), restart: true }
+    },
+    breakSession() {
+      state.locked = [...state.locked, ...state.session]
+      state.session = []
+      return view()
+    },
+    view,
+  }
+}
+
+export function applySpeech(text, baseLines) {
+  const { amounts, eraseOnly } = readSpoken(text)
+  const base = Array.isArray(baseLines) ? baseLines.slice() : []
+  if (eraseOnly && base.length) base.pop()
+  return { base, amounts, eraseOnly }
 }

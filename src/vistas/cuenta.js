@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import { colors, helpText, methods, periods, voiceText } from '../estilos/tema'
+import { colors, helpText, methods, periods } from '../estilos/tema'
 import { useScreenStyles } from '../estilos/pantallas'
 import { Text, useLook } from './texto'
 import {
@@ -440,8 +440,8 @@ export function PasswordSettings() {
   return (
     <Frame
       onBack={() => pop()}
-      helpTopic="settings"
-      footer={<Button label="Actualizar contraseña" onPress={save} />}
+        helpTopic="password"
+        footer={<Button label="Actualizar contraseña" onPress={save} />}
     >
       <Title>Actualizar contraseña</Title>
       <Sub>La contraseña debe tener 6 dígitos.</Sub>
@@ -550,7 +550,7 @@ export function WalletSettings({ brand }) {
   return (
     <Frame
       onBack={() => pop()}
-      helpTopic="settings"
+      helpTopic={brand === 'plin' ? 'plin' : 'yape'}
       footer={<Button label="Guardar" onPress={save} />}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -587,7 +587,7 @@ export function WalletSettings({ brand }) {
               <Image
                 source={{ uri: qr }}
                 resizeMode="contain"
-                style={{ width: 220, height: 220, backgroundColor: colors.white }}
+                style={{ width: '100%', maxWidth: 220, aspectRatio: 1, backgroundColor: colors.white }}
                 accessibilityLabel={`QR de ${name}`}
               />
               <Button label="Quitar QR" variant="outline" onPress={() => setQr('')} />
@@ -667,16 +667,17 @@ export function Help() {
   const styles = useScreenStyles()
   const { route, pop } = useApp()
   const topic = route.params?.topic || 'home'
+  const body = helpText[topic] || helpText.home
   return (
     <Frame
       onBack={() => pop()}
-      voice={helpText[topic] ? voiceText[topic] : voiceText.home}
+      voice={`Cómo te ayudo. ${body} Cuando termines de leer, toca Entendido para volver a la pantalla.`}
       footer={<Button label="Entendido" variant="navy" onPress={() => pop()} />}
     >
       <Title>¿Cómo te ayudo?</Title>
       <View style={styles.helpCard}>
         <Text style={styles.helpLabel}>Ayuda</Text>
-        <Text style={styles.helpBody}>{helpText[topic] || helpText.home}</Text>
+        <Text style={styles.helpBody}>{body}</Text>
       </View>
       <Text style={styles.empty}>Cuando termines de leer, toca Entendido para volver a la pantalla.</Text>
     </Frame>

@@ -101,26 +101,62 @@ export function Avatar({ kind = 'woman', name = '', usePhoto = true, size = 48 }
   }
 
   const look = AVATAR_LOOKS[kind] || AVATAR_LOOKS.woman
-  const wide = look.style === 'bob' || look.style === 'long'
+  const s = size
+  const long = look.style === 'long'
+  const bob = look.style === 'bob'
+  const bun = look.style === 'bun'
+  const short = look.style === 'short'
+  const line = Math.max(1.5, s * 0.028)
   return (
     <View
       style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
+        width: s,
+        height: s,
+        borderRadius: s / 2,
         backgroundColor: look.bg,
         alignItems: 'center',
         overflow: 'hidden',
       }}
     >
-      {look.style === 'bun' ? (
+      <View
+        style={{
+          position: 'absolute',
+          bottom: -s * 0.06,
+          width: s * 0.98,
+          height: s * 0.4,
+          backgroundColor: look.shirt,
+          borderTopLeftRadius: s * 0.5,
+          borderTopRightRadius: s * 0.5,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: s * 0.26,
+          width: s * 0.16,
+          height: s * 0.14,
+          borderRadius: s,
+          backgroundColor: look.skin,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: s * (bun ? 0.16 : 0.1),
+          width: s * (long || bob ? 0.62 : 0.48),
+          height: s * (long ? 0.66 : bob ? 0.52 : 0.34),
+          borderRadius: s,
+          backgroundColor: look.hair,
+        }}
+      />
+      {bun ? (
         <View
           style={{
             position: 'absolute',
-            top: size * 0.06,
-            width: size * 0.28,
-            height: size * 0.28,
-            borderRadius: size,
+            top: s * 0.03,
+            width: s * 0.24,
+            height: s * 0.24,
+            borderRadius: s,
             backgroundColor: look.hair,
           }}
         />
@@ -128,63 +164,79 @@ export function Avatar({ kind = 'woman', name = '', usePhoto = true, size = 48 }
       <View
         style={{
           position: 'absolute',
-          top: size * (look.style === 'bun' ? 0.16 : 0.1),
-          width: size * (wide ? 0.62 : 0.48),
-          height: size * (look.style === 'long' ? 0.46 : 0.32),
-          borderRadius: size,
-          backgroundColor: look.hair,
-        }}
-      />
-      {look.style === 'long' ? (
-        <>
-          <View style={{ position: 'absolute', left: size * 0.12, top: size * 0.28, width: size * 0.12, height: size * 0.42, borderRadius: size, backgroundColor: look.hair }} />
-          <View style={{ position: 'absolute', right: size * 0.12, top: size * 0.28, width: size * 0.12, height: size * 0.42, borderRadius: size, backgroundColor: look.hair }} />
-        </>
-      ) : null}
-      <View
-        style={{
-          width: size * 0.34,
-          height: size * 0.34,
-          borderRadius: size,
+          top: s * 0.2,
+          width: s * 0.42,
+          height: s * 0.44,
+          borderRadius: s,
           backgroundColor: look.skin,
-          marginTop: size * 0.22,
+          alignItems: 'center',
         }}
-      />
+      >
+        <View
+          style={{
+            position: 'absolute',
+            top: short ? s * 0.01 : -s * 0.01,
+            width: s * (short ? 0.34 : 0.42),
+            height: s * (short ? 0.08 : 0.15),
+            borderBottomLeftRadius: s,
+            borderBottomRightRadius: s,
+            backgroundColor: look.hair,
+          }}
+        />
+        <View style={{ flexDirection: 'row', gap: s * 0.1, marginTop: s * 0.15 }}>
+          <View style={{ width: s * 0.05, height: s * 0.055, borderRadius: s, backgroundColor: '#3A2A22' }} />
+          <View style={{ width: s * 0.05, height: s * 0.055, borderRadius: s, backgroundColor: '#3A2A22' }} />
+        </View>
+        <View
+          style={{
+            marginTop: s * 0.035,
+            width: s * 0.14,
+            height: s * 0.07,
+            borderBottomWidth: line,
+            borderBottomColor: '#C26B62',
+            borderBottomLeftRadius: s,
+            borderBottomRightRadius: s,
+          }}
+        />
+        <View style={{ position: 'absolute', left: s * 0.035, top: s * 0.2, width: s * 0.07, height: s * 0.04, borderRadius: s, backgroundColor: 'rgba(226, 130, 120, 0.4)' }} />
+        <View style={{ position: 'absolute', right: s * 0.035, top: s * 0.2, width: s * 0.07, height: s * 0.04, borderRadius: s, backgroundColor: 'rgba(226, 130, 120, 0.4)' }} />
+      </View>
       {look.glasses ? (
-        <View style={{ position: 'absolute', top: size * 0.32, flexDirection: 'row', gap: size * 0.02 }}>
-          <View style={{ width: size * 0.16, height: size * 0.12, borderRadius: size, borderWidth: 1.5, borderColor: '#1B1B1B' }} />
-          <View style={{ width: size * 0.16, height: size * 0.12, borderRadius: size, borderWidth: 1.5, borderColor: '#1B1B1B' }} />
+        <View
+          style={{
+            position: 'absolute',
+            top: s * 0.33,
+            width: s * 0.44,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: s * 0.012,
+          }}
+        >
+          <View style={{ width: s * 0.16, height: s * 0.13, borderRadius: s, borderWidth: line, borderColor: '#3A2A22', backgroundColor: 'rgba(255,255,255,0.28)' }} />
+          <View style={{ width: s * 0.16, height: s * 0.13, borderRadius: s, borderWidth: line, borderColor: '#3A2A22', backgroundColor: 'rgba(255,255,255,0.28)' }} />
         </View>
       ) : null}
       {look.beard ? (
         <View
           style={{
             position: 'absolute',
-            top: size * 0.46,
-            width: size * 0.18,
-            height: size * 0.1,
-            borderBottomLeftRadius: size,
-            borderBottomRightRadius: size,
+            top: s * 0.5,
+            width: s * 0.28,
+            height: s * 0.16,
+            borderBottomLeftRadius: s,
+            borderBottomRightRadius: s,
             backgroundColor: look.hair,
           }}
         />
       ) : null}
-      <View
-        style={{
-          width: size * 0.72,
-          height: size * 0.42,
-          borderTopLeftRadius: size,
-          borderTopRightRadius: size,
-          backgroundColor: look.shirt,
-          marginTop: size * 0.02,
-        }}
-      />
     </View>
   )
 }
 
 function AvatarChoice({ option, selected, onPress }) {
   const styles = useScreenStyles()
+  const { narrow } = usePhone()
   const motion = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
@@ -223,7 +275,7 @@ function AvatarChoice({ option, selected, onPress }) {
         </View>
       ) : null}
       <Animated.View style={{ transform: [{ translateY: lift }, { scale }] }}>
-        <Avatar kind={option.id} size={64} />
+        <Avatar kind={option.id} size={narrow ? 52 : 64} />
       </Animated.View>
     </Pressable>
   )
@@ -276,8 +328,9 @@ function BackIcon() {
   )
 }
 
-function HelpIcon() {
-  const color = useIconInk()
+function HelpIcon({ color }) {
+  const fallback = useIconInk()
+  const ink = color || fallback
   return (
     <View
       style={{
@@ -285,35 +338,68 @@ function HelpIcon() {
         height: 24,
         borderRadius: 12,
         borderWidth: 2.5,
-        borderColor: color,
+        borderColor: ink,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Glyph style={{ color, fontSize: 15, fontWeight: '800', lineHeight: 17 }}>?</Glyph>
+      <Glyph style={{ color: ink, fontSize: 15, fontWeight: '800', lineHeight: 17 }}>?</Glyph>
     </View>
   )
 }
 
 function AccessIcon() {
-  const figure = '#FFFFFF'
+  const { contrast } = useLook()
+  const ink = contrast ? '#111111' : '#159AAB'
+  const stroke = 3
+  const limb = (left, top, angle) => ({
+    position: 'absolute',
+    left,
+    top,
+    width: stroke,
+    height: 15,
+    borderRadius: 2,
+    backgroundColor: ink,
+    transform: [{ rotate: angle }],
+  })
   return (
-    <View style={{ width: 30, height: 30, alignItems: 'center' }}>
-      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: figure }} />
-      <View style={{ width: 22, height: 4, borderRadius: 2, backgroundColor: figure, marginTop: 2, alignItems: 'center' }}>
-        <View style={{ position: 'absolute', top: 0, width: 4, height: 11, borderRadius: 2, backgroundColor: figure }} />
-      </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: 16, marginTop: 7 }}>
-        <View style={{ width: 4, height: 9, borderRadius: 2, backgroundColor: figure, transform: [{ rotate: '32deg' }] }} />
-        <View style={{ width: 4, height: 9, borderRadius: 2, backgroundColor: figure, transform: [{ rotate: '-32deg' }] }} />
-      </View>
+    <View style={{ width: 40, height: 40 }}>
+      <View
+        style={{
+          position: 'absolute',
+          left: 15,
+          top: 0,
+          width: 10,
+          height: 10,
+          borderRadius: 5,
+          borderWidth: stroke,
+          borderColor: ink,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          left: 18.5,
+          top: 11,
+          width: stroke,
+          height: 11,
+          borderRadius: 2,
+          backgroundColor: ink,
+        }}
+      />
+      <View style={limb(11, 2, '-58deg')} />
+      <View style={limb(26, 2, '58deg')} />
+      <View style={limb(15, 21, '28deg')} />
+      <View style={limb(22, 21, '-28deg')} />
     </View>
   )
 }
 
-function NavButton({ mark, label, onPress, hint, iconOnly = false }) {
+function NavButton({ mark, label, onPress, hint, tone }) {
   const styles = useUiStyles()
   const { contrast } = useLook()
+  const help = tone === 'help'
+  const access = tone === 'access'
   return (
     <Pressable
       accessibilityRole="button"
@@ -322,21 +408,36 @@ function NavButton({ mark, label, onPress, hint, iconOnly = false }) {
       hitSlop={6}
       style={({ pressed }) => [
         styles.navBtn,
-        iconOnly && {
-          width: 52,
-          height: 52,
-          minHeight: 52,
-          paddingVertical: 0,
-          borderRadius: 26,
-          backgroundColor: colors.green,
-          borderColor: colors.green,
+        help && {
+          backgroundColor: '#FFE7A3',
+          borderColor: '#C6A04A',
+          borderWidth: 2,
+          minWidth: 76,
+        },
+        access && {
+          width: 148,
+          minHeight: 74,
+          paddingHorizontal: 6,
+          borderRadius: 18,
+          backgroundColor: '#FFFFFF',
+          borderColor: contrast ? '#111111' : '#159AAB',
+          borderWidth: 3,
         },
         contrast && { borderColor: '#111111', borderWidth: 2 },
         pressed && styles.pressed,
       ]}
     >
       {mark}
-      {iconOnly ? null : <Text numberOfLines={2} style={styles.navLabel}>{label}</Text>}
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.navLabel,
+          help && { color: '#4A3208', fontSize: 13 },
+          access && { color: contrast ? '#111111' : '#0C6A76', fontSize: 13 },
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   )
 }
@@ -407,6 +508,7 @@ function EarMark({ color }) {
 
 function VoiceButton({ text }) {
   const styles = useUiStyles()
+  const { narrow } = usePhone()
   const [speaking, setSpeaking] = useState(false)
   const alive = useRef(true)
   const pulse = useRef(new Animated.Value(1)).current
@@ -448,37 +550,97 @@ function VoiceButton({ text }) {
     speakAloud(text, { onStart: () => alive.current && setSpeaking(true), onEnd: finish })
   }
 
+  const ink = speaking ? '#FFFFFF' : '#06283A'
+  const control = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={speaking ? 'Detener la ayuda hablada' : 'Escuchar la ayuda de esta pantalla'}
+      onPress={toggle}
+      style={({ pressed }) => [
+        styles.voiceBtn,
+        narrow && { width: 84, minHeight: 60 },
+        speaking && styles.voiceBtnOn,
+        pressed && styles.pressed,
+      ]}
+    >
+      <EarMark color={ink} />
+      <Text style={{ color: ink, fontSize: 13, fontWeight: '800' }}>
+        {speaking ? 'Alto' : 'Escuchar'}
+      </Text>
+    </Pressable>
+  )
+  return <Animated.View style={{ transform: [{ scale: pulse }] }}>{control}</Animated.View>
+}
+
+function MenuMark({ open }) {
+  const color = '#111111'
+  if (open) {
+    return (
+      <View style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ position: 'absolute', width: 20, height: 3, borderRadius: 2, backgroundColor: color, transform: [{ rotate: '45deg' }] }} />
+        <View style={{ position: 'absolute', width: 20, height: 3, borderRadius: 2, backgroundColor: color, transform: [{ rotate: '-45deg' }] }} />
+      </View>
+    )
+  }
   return (
-    <Animated.View style={{ transform: [{ scale: pulse }] }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={speaking ? 'Detener la ayuda hablada' : 'Escuchar la ayuda de esta pantalla'}
-        onPress={toggle}
-        style={({ pressed }) => [
-          styles.voiceBtn,
-          speaking && styles.voiceBtnOn,
-          pressed && styles.pressed,
-        ]}
-      >
-        <EarMark color="#FFFFFF" />
-        <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>
-          {speaking ? 'Alto' : 'Escuchar'}
-        </Text>
-      </Pressable>
-    </Animated.View>
+    <View style={{ width: 22, height: 17, justifyContent: 'space-between' }}>
+      <View style={{ height: 3, borderRadius: 2, backgroundColor: color }} />
+      <View style={{ height: 3, borderRadius: 2, backgroundColor: color }} />
+      <View style={{ height: 3, borderRadius: 2, backgroundColor: color }} />
+    </View>
+  )
+}
+
+function MarkBox({ children }) {
+  return <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>{children}</View>
+}
+
+function MenuRow({ mark, label, hint, onPress, backgroundColor, borderColor, color }) {
+  const styles = useUiStyles()
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={hint || label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          minHeight: 72,
+          borderRadius: 16,
+          borderWidth: 3,
+          borderColor,
+          backgroundColor,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          paddingHorizontal: 14,
+        },
+        pressed && styles.pressed,
+      ]}
+    >
+      <MarkBox>{mark}</MarkBox>
+      <Text style={{ color, fontSize: 20, fontWeight: '800', flex: 1 }}>{label}</Text>
+    </Pressable>
   )
 }
 
 export function TopBar({ mode = 'back', onBack, helpTopic, voice }) {
   const styles = useUiStyles()
   const { push } = useApp()
-  const atStart = mode === 'home' || mode === 'splash'
+  const { dark, contrast } = useLook()
+  const [open, setOpen] = useState(false)
   const spoken = voice || (helpTopic ? voiceText[helpTopic] : '')
+  useEffect(() => {
+    setOpen(false)
+  }, [helpTopic, spoken])
+  function closeAnd(screen, params) {
+    setOpen(false)
+    push(screen, params)
+  }
   return (
     <View style={styles.topBar}>
       {mode === 'home' ? (
         <View style={styles.brandRow}>
-          <Logo size={32} />
+          <Logo size={44} />
           <Text style={styles.brand}>CajaFácil</Text>
         </View>
       ) : null}
@@ -487,15 +649,72 @@ export function TopBar({ mode = 'back', onBack, helpTopic, voice }) {
           <NavButton mark={<BackIcon />} label="Volver" hint="Volver a la pantalla anterior" onPress={onBack} />
         ) : <View />}
         <View style={styles.navRow}>
-          {atStart ? (
-            <NavButton mark={<AccessIcon />} label="Accesibilidad" hint="Abrir accesibilidad" onPress={() => push('a11y')} iconOnly />
-          ) : null}
-          {helpTopic ? (
-            <NavButton mark={<HelpIcon />} label="Ayuda" hint="Abrir ayuda de esta pantalla" onPress={() => push('help', { topic: helpTopic })} />
-          ) : null}
           {spoken ? <VoiceButton text={spoken} /> : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={open ? 'Cerrar el menú' : 'Abrir el menú'}
+            accessibilityState={{ expanded: open }}
+            onPress={() => setOpen((value) => !value)}
+            hitSlop={6}
+            style={({ pressed }) => [pressed && styles.pressed, { alignItems: 'center' }]}
+          >
+            <View
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 30,
+                borderWidth: 3,
+                borderColor: '#111111',
+                backgroundColor: '#FFFFFF',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <MenuMark open={open} />
+            </View>
+          </Pressable>
         </View>
       </View>
+      {open ? (
+        <View
+          style={{
+            backgroundColor: dark ? '#161616' : '#FFFFFF',
+            borderRadius: 20,
+            borderWidth: contrast ? 3 : 2,
+            borderColor: contrast ? '#111111' : dark ? '#3A3A3A' : '#E4E0D4',
+            padding: 12,
+            gap: 10,
+          }}
+        >
+          {open ? (
+            <Text style={{ color: dark ? '#FFFFFF' : '#1B1B1B', fontSize: 18, fontWeight: '800' }}>
+              Elige una opción
+            </Text>
+          ) : null}
+          {open && helpTopic ? (
+            <MenuRow
+              mark={<HelpIcon color="#4A3208" />}
+              label="Ayuda"
+              hint="Abrir ayuda de esta pantalla"
+              backgroundColor="#FFE7A3"
+              borderColor="#C6A04A"
+              color="#4A3208"
+              onPress={() => closeAnd('help', { topic: helpTopic })}
+            />
+          ) : null}
+          {open ? (
+            <MenuRow
+              mark={<AccessIcon />}
+              label="Accesibilidad"
+              hint="Abrir accesibilidad"
+              backgroundColor="#FFFFFF"
+              borderColor={contrast ? '#111111' : '#159AAB'}
+              color={contrast ? '#111111' : '#0C6A76'}
+              onPress={() => closeAnd('a11y')}
+            />
+          ) : null}
+        </View>
+      ) : null}
     </View>
   )
 }
@@ -1068,7 +1287,7 @@ export function YapePanel({ brand = 'yape', cents, phone, qr, note = '', onNote,
           <Image
             source={{ uri: qr }}
             resizeMode="contain"
-            style={{ width: 220, height: 220 }}
+            style={{ width: '100%', maxWidth: 220, aspectRatio: 1 }}
             accessibilityLabel={`QR de ${name}`}
           />
         </View>
@@ -1088,7 +1307,7 @@ export function YapePanel({ brand = 'yape', cents, phone, qr, note = '', onNote,
               onChangeText={onNote}
               style={[
                 ui.input,
-                { flex: 1 },
+                { flexGrow: 1, flexBasis: 140, minWidth: 0 },
                 hearing && { borderColor: colors.red, borderWidth: 2 },
               ]}
             />

@@ -1,5 +1,5 @@
 // Fiados y cobros.
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,7 +16,6 @@ import {
   addFiado,
   addProduct,
   addSale,
-  backspaceMoney,
   cartTotal,
   catalogOf,
   cobrar,
@@ -32,7 +31,6 @@ import {
   logout,
   payPhone,
   periodSummary,
-  pushDigit,
   register,
   removeProduct,
   salesOf,
@@ -45,7 +43,10 @@ import {
   DEMO_PIN,
 } from '../js/logica.mjs'
 import { useApp } from '../js/estado'
+import { canListen, startListening } from '../js/escucha'
+import { createSpeechLedger, sumCents, typedCents } from '../js/montos.mjs'
 import { usePhone } from '../js/telefono'
+import { speakAloud, stopAloud } from '../js/voz'
 import {
   Avatar,
   Button,
@@ -53,6 +54,7 @@ import {
   Field,
   Keypad,
   Logo,
+  MicMark,
   MethodOption,
   ModalCard,
   MoneyBig,
@@ -68,6 +70,222 @@ import {
 } from './interfaz'
 
 import { AmountBox, DetailRow, Frame, Tab, cartItems, productText } from './marco'
+
+function writeDigit(current, digit) {
+  if (current.includes('.')) {
+    const frac = current.split('.')[1]
+    if (frac.length >= 2) return current
+    return `${current}${digit}`
+  }
+  if (current === '0') return String(digit)
+  if (current.length >= 6) return current
+  return `${current}${digit}`
+}
+
+function centsToTyped(cents) {
+  const whole = Math.floor(cents / 100)
+  const frac = cents % 100
+  if (!frac) return String(whole)
+  if (frac % 10 === 0) return `${whole}.${frac / 10}`
+  return `${whole}.${String(frac).padStart(2, '0')}`
+}
+
+function SaleKeypad({ typed, lines, onTyped, onLines, maxCents, borderColor }) {
+  const styles = useScreenStyles()
+  const [hearing, setHearing] = useState(false)
+  const [hearNote, setHearNote] = useState('')
+  const hearingRef = useRef(false)
+  const saidRef = useRef('')
+  const stopRef = useRef(null)
+  const linesRef = useRef(lines)
+  const typedRef = useRef(typed)
+  const heardBase = useRef([])
+  const ledger = useRef(null)
+  if (!hearingRef.current) {
+    linesRef.current = lines
+    typedRef.current = typed
+  }
+  const entry = typedCents(typed)
+  const committed = sumCents(lines)
+  const room = maxCents == null ? null : maxCents - committed
+  const canAdd = entry > 0 && (room == null || entry <= room)
+
+  useEffect(() => {
+    return () => {
+      if (stopRef.current) stopRef.current()
+      stopAloud()
+    }
+  }, [])
+
+  function commitAmount(cents = typedCents(typedRef.current)) {
+    if (cents <= 0) return false
+    const used = sumCents(linesRef.current)
+    if (maxCents != null && used + cents > maxCents) return false
+    onLines([...linesRef.current, cents])
+    linesRef.current = [...linesRef.current, cents]
+    typedRef.current = ''
+    onTyped('')
+    return true
+  }
+
+  function commit() {
+    if (hearingRef.current) {
+      finishHear()
+      return
+    }
+    commitAmount()
+  }
+
+  function finishHear() {
+    if (!hearingRef.current) return
+    hearingRef.current = false
+    const stop = stopRef.current
+    stopRef.current = null
+    if (stop) stop()
+    setHearing(false)
+    const pending = typedCents(typedRef.current)
+    saidRef.current = ''
+    if (pending > 0 && !commitAmount(pending)) {
+      typedRef.current = ''
+      onTyped('')
+      setHearNote('Ese monto pasa lo que te deben.')
+    }
+  }
+
+  function toggleHear() {
+    if (hearingRef.current) {
+      finishHear()
+      return
+    }
+    if (!canListen()) {
+      const message = 'Aquí no puedo escuchar. Usa la calculadora para escribir el monto.'
+      setHearNote(message)
+      speakAloud(message)
+      return
+    }
+    if (typedCents(typedRef.current) > 0) commitAmount()
+    heardBase.current = linesRef.current.slice()
+    ledger.current = createSpeechLedger(heardBase.current)
+    saidRef.current = ''
+    setHearNote('')
+    hearingRef.current = true
+    setHearing(true)
+    stopAloud()
+    function showSpoken(view, restarted) {
+      const accepted = []
+      let used = sumCents(view.base)
+      for (const cents of view.amounts.slice(0, -1)) {
+        if (maxCents != null && used + cents > maxCents) break
+        accepted.push(cents)
+        used += cents
+      }
+      const nextLines = [...view.base, ...accepted]
+      linesRef.current = nextLines
+      onLines(nextLines)
+      const last = view.amounts.length ? view.amounts[view.amounts.length - 1] : 0
+      if (!last || (maxCents != null && used + last > maxCents)) {
+        typedRef.current = ''
+        onTyped('')
+        if (last) setHearNote('Ese monto pasa lo que te deben.')
+        else if (restarted) setHearNote('Quité el último monto.')
+        return
+      }
+      typedRef.current = centsToTyped(last)
+      onTyped(typedRef.current)
+      setHearNote(restarted ? 'Quité el último monto.' : '')
+    }
+    stopRef.current = startListening({
+      onLive: (text, generation) => {
+        if (!hearingRef.current || !ledger.current) return
+        saidRef.current = text
+        const step = ledger.current.push(text, generation)
+        showSpoken(ledger.current.view(), step.restart)
+        if (step.restart && stopRef.current) stopRef.current.restart()
+      },
+      onBreak: () => {
+        if (!hearingRef.current || !ledger.current) return
+        showSpoken(ledger.current.breakSession(), false)
+      },
+      onPhrase: () => {},
+      onError: (code) => {
+        finishHear()
+        const message = code === 'not-allowed'
+          ? 'Permite el micrófono para anotar con la voz.'
+          : 'No pude escuchar. Toca Hablar otra vez.'
+        setHearNote(message)
+        speakAloud(message)
+      },
+      onEnd: () => finishHear(),
+    })
+  }
+
+  return (
+    <>
+      <AmountBox
+        cents={committed + (canAdd || room == null ? entry : 0)}
+        label={typed ? `S/${typed}` : ''}
+        borderColor={hearing ? colors.red : borderColor}
+      />
+      {room != null && entry > room ? (
+        <Text style={styles.hearNote}>Ese monto pasa lo que te deben.</Text>
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={hearing ? 'Dejar de escuchar' : 'Hablar el monto'}
+        onPress={toggleHear}
+        style={({ pressed }) => [
+          styles.hearBtn,
+          {
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderColor: hearing ? colors.red : colors.green,
+            marginBottom: 8,
+            minHeight: 52,
+          },
+          pressed && { opacity: 0.86 },
+        ]}
+      >
+        <MicMark size={24} color={hearing ? colors.red : colors.green} />
+        <Text style={[styles.hearText, { color: hearing ? colors.red : colors.green }]}>
+          {hearing ? 'Te escucho' : 'Hablar'}
+        </Text>
+      </Pressable>
+      {hearNote && !hearing ? <Text style={styles.hearNote}>{hearNote}</Text> : null}
+      <View style={styles.keyArea}>
+        <Keypad
+          onDigit={(digit) => {
+            if (hearingRef.current) finishHear()
+            onTyped(writeDigit(typedRef.current, digit))
+          }}
+          onDot={() => {
+            if (hearingRef.current) finishHear()
+            const current = typedRef.current
+            onTyped(current.includes('.') ? current : `${current || '0'}.`)
+          }}
+          onDelete={() => {
+            if (hearingRef.current) finishHear()
+            if (typedRef.current) onTyped(typedRef.current.slice(0, -1))
+            else if (linesRef.current.length) onLines(linesRef.current.slice(0, -1))
+          }}
+          onAdd={commit}
+          onEquals={commit}
+          addEnabled={canAdd || hearing}
+        />
+      </View>
+      {lines.length ? (
+        <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
+          <Text style={{ color: colors.text, fontWeight: '800' }}>Tu registro:</Text>
+          {lines.map((cents, index) => (
+            <Text key={`${cents}-${index}`} style={{ color: colors.text, fontWeight: '700' }}>
+              {index > 0 ? ' + ' : ''}{formatMoney(cents)}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </>
+  )
+}
+
 export function Fiados() {
   const styles = useScreenStyles()
   const { state, push, pop, setDraft } = useApp()
@@ -160,7 +378,9 @@ export function FiadoAmount() {
   const { pad, short } = usePhone()
   const fixedName = route.params?.name
   const name = fixedName || draft.fiadoName
-  const cents = draft.cobroCents
+  const [typed, setTyped] = useState('')
+  const [lines, setLines] = useState([])
+  const cents = sumCents(lines) + typedCents(typed)
 
   function save() {
     const result = addFiado(state, { name, cents })
@@ -189,14 +409,13 @@ export function FiadoAmount() {
         <Step>Paso 2 de 2</Step>
         <Title>¿Cuánto se fía?</Title>
         <Text style={styles.personName}>{name}</Text>
-        <AmountBox cents={cents} borderColor={colors.brown} />
-        <View style={styles.keyArea}>
-          <Keypad
-            showDot
-            onDigit={(digit) => setDraft((current) => ({ ...current, cobroCents: pushDigit(current.cobroCents, digit) }))}
-            onDelete={() => setDraft((current) => ({ ...current, cobroCents: backspaceMoney(current.cobroCents) }))}
-          />
-        </View>
+        <SaleKeypad
+          typed={typed}
+          lines={lines}
+          onTyped={setTyped}
+          onLines={setLines}
+          borderColor={colors.brown}
+        />
         {short ? null : (
           <View style={{ marginTop: 16 }}>
             <Button label="Anotar fiado" variant="brown" disabled={cents <= 0} onPress={save} />
@@ -286,12 +505,14 @@ export function CobroAmount() {
   const { pad, short } = usePhone()
   const person = getPerson(state, route.params?.personId)
   const debt = Math.max(0, person?.debt || 0)
-  const cents = draft.cobroCents
+  const [typed, setTyped] = useState('')
+  const [lines, setLines] = useState([])
+  const cents = sumCents(lines) + typedCents(typed)
 
-  function add(digit) {
-    const next = pushDigit(cents, digit)
-    if (next > debt) return
-    setDraft((current) => ({ ...current, cobroCents: next }))
+  function goNext() {
+    if (cents <= 0 || cents > debt) return
+    setDraft((current) => ({ ...current, cobroCents: cents }))
+    push('cobroPay', { personId: person.id })
   }
 
   if (!person) {
@@ -319,28 +540,29 @@ export function CobroAmount() {
       >
         <Step>Paso 1 de 2</Step>
         <Title>¿Cuánto paga {person.name}?</Title>
-        <AmountBox cents={cents} borderColor={colors.green} />
+        <SaleKeypad
+          typed={typed}
+          lines={lines}
+          onTyped={setTyped}
+          onLines={setLines}
+          maxCents={debt}
+          borderColor={colors.green}
+        />
         <View style={styles.limitRow}>
           <Text style={[styles.personMeta, { flex: 1 }]}>Te debe {formatMoney(debt)}</Text>
-          <Pressable onPress={() => setDraft((current) => ({ ...current, cobroCents: debt }))}>
+          <Pressable onPress={() => { setLines(debt > 0 ? [debt] : []); setTyped(''); setDraft((current) => ({ ...current, cobroCents: debt })) }}>
             <Text style={styles.link}>Cobrar todo</Text>
           </Pressable>
         </View>
-        <View style={styles.keyArea}>
-          <Keypad
-            onDigit={add}
-            onDelete={() => setDraft((current) => ({ ...current, cobroCents: backspaceMoney(current.cobroCents) }))}
-          />
-        </View>
         {short ? null : (
           <View style={{ marginTop: 16 }}>
-            <Button label="Siguiente" disabled={cents <= 0} onPress={() => push('cobroPay', { personId: person.id })} />
+            <Button label="Siguiente" disabled={cents <= 0 || cents > debt} onPress={goNext} />
           </View>
         )}
       </ScrollView>
       {short ? (
         <View style={[styles.footer, { paddingHorizontal: pad }]}>
-          <Button label="Siguiente" disabled={cents <= 0} onPress={() => push('cobroPay', { personId: person.id })} />
+          <Button label="Siguiente" disabled={cents <= 0 || cents > debt} onPress={goNext} />
         </View>
       ) : null}
     </View>
