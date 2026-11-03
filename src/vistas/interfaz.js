@@ -1,17 +1,19 @@
 // Botones, teclado y barra. La vista usa estos componentes; los estilos están en estilos/componentes.js.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, Easing, Pressable, Text as Glyph, TextInput, View } from 'react-native'
+import { Animated, Easing, Image, Keyboard, Pressable, Text as Glyph, TextInput, View } from 'react-native'
 import { colors, voiceText } from '../estilos/tema'
 import { useUiStyles } from '../estilos/componentes'
 import { useScreenStyles } from '../estilos/pantallas'
 import { canListen, startListening } from '../js/escucha'
 import { formatMoney, formatPhone } from '../js/logica.mjs'
 import { spokenDigits } from '../js/montos.mjs'
-import { qrMatrix } from '../js/qr.mjs'
 import { speakAloud, stopAloud } from '../js/voz'
 import { useApp } from '../js/estado'
 import { Text, useLook } from './texto'
 import { usePhone } from '../js/telefono'
+
+export const SALE_LEAVE_TITLE = '¿Seguro que quieres salir de la venta?'
+export const SALE_LEAVE_BODY = 'Vas a salir de la venta y no se registrará. Perderás los montos que ingresaste.'
 
 export function Logo({ size = 72 }) {
   const receipt = size * 0.46
@@ -498,15 +500,6 @@ export function TopBar({ mode = 'back', onBack, helpTopic, voice }) {
   )
 }
 
-function DockPlus({ color }) {
-  return (
-    <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ position: 'absolute', width: 16, height: 3, borderRadius: 2, backgroundColor: color }} />
-      <View style={{ position: 'absolute', width: 3, height: 16, borderRadius: 2, backgroundColor: color }} />
-    </View>
-  )
-}
-
 function DockBars({ color }) {
   return (
     <View style={{ width: 22, height: 22, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 3 }}>
@@ -559,12 +552,11 @@ function DockHouse({ color }) {
 export function Dock() {
   const styles = useUiStyles()
   const { dark } = useLook()
-  const { route, state, draft, go, goHome, clearSale } = useApp()
+  const { route, draft, go, goHome, clearSale } = useApp()
   const [ask, setAsk] = useState(null)
   const name = route?.name
   const tabs = [
     { id: 'home', label: 'Inicio' },
-    { id: 'saleAmount', label: 'Venta' },
     { id: 'balance', label: 'Balance' },
     { id: 'fiados', label: 'Fiados' },
     { id: 'account', label: 'Cuenta' },
@@ -572,27 +564,26 @@ export function Dock() {
 
   function selected(id) {
     if (id === 'home') return name === 'home'
-    if (id === 'saleAmount') return ['saleAmount', 'salePay', 'saleSaved', 'sales', 'saleDetail'].includes(name)
     if (id === 'balance') return name === 'balance'
     if (id === 'fiados') return ['fiados', 'fiadoName', 'fiadoAmount', 'person', 'cobroAmount', 'cobroPay'].includes(name)
     return ['account', 'settings'].includes(name)
   }
 
   function goTab(id) {
+    if (['saleAmount', 'salePay'].includes(name)) clearSale()
     if (id === 'home') {
       goHome()
       return
     }
-    if (id === 'saleAmount') clearSale()
     go([{ name: 'home' }, { name: id }])
   }
 
   function open(id) {
     if (name === id) return
     const sale = draft.sale || {}
-    const dirty = sale.cents > 0 || (sale.lines || []).length > 0 || Boolean(sale.clientName)
+    const dirty = sale.cents > 0 || sale.pendingCents > 0 || (sale.lines || []).length > 0 || Boolean(sale.clientName)
     const leavingSale = ['saleAmount', 'salePay'].includes(name)
-    if (leavingSale && state.settings.confirmLeave && dirty) {
+    if (leavingSale && dirty) {
       setAsk(id)
       return
     }
@@ -607,7 +598,6 @@ export function Dock() {
           const color = on ? colors.green : dark ? '#FFFFFF' : '#1B1B1B'
           const mark = {
             home: <DockHouse color={color} />,
-            saleAmount: <DockPlus color={color} />,
             balance: <DockBars color={color} />,
             fiados: <DockList color={color} />,
             account: <DockUser color={color} />,
@@ -632,10 +622,10 @@ export function Dock() {
         })}
       </View>
       {ask ? (
-        <ModalCard title="¿Salir sin guardar?" body="Si sales ahora, esta venta no queda anotada.">
-          <Button label="Seguir aquí" onPress={() => setAsk(null)} />
+        <ModalCard title={SALE_LEAVE_TITLE} body={SALE_LEAVE_BODY}>
+          <Button label="Seguir en la venta" onPress={() => setAsk(null)} />
           <Button
-            label="Salir"
+            label="Salir de la venta"
             variant="red"
             onPress={() => {
               const next = ask
@@ -869,23 +859,56 @@ function Key({ label, onPress, height, grow = 1, fill = false, danger = false, m
   )
 }
 
-export function Otp({ value, secret = false }) {
+export function Otp({ value, secret = false, onPress, onChangeText }) {
   const styles = useUiStyles()
+  const inputRef = useRef(null)
+  const editable = typeof onChangeText === 'function'
+
+  function handleChange(text) {
+    const digits = text.replace(/\D/g, '').slice(0, 6)
+    onChangeText(digits)
+    if (digits.length === 6) {
+      inputRef.current?.blur()
+      Keyboard.dismiss()
+    }
+  }
+
   return (
     <View style={styles.otpRow}>
+      {editable ? (
+        <TextInput
+          ref={inputRef}
+          accessibilityLabel="Código de 6 dígitos"
+          keyboardType="number-pad"
+          value={value}
+          maxLength={6}
+          secureTextEntry={secret}
+          accessible={false}
+          onChangeText={handleChange}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+        />
+      ) : null}
       {Array.from({ length: 6 }, (_, index) => {
         const char = value[index] || ''
         const active = index === value.length
+        const handlePress = () => {
+          onPress?.(index)
+          if (editable) inputRef.current?.focus()
+        }
         return (
-          <View
+          <Pressable
             key={index}
+            accessibilityRole={editable || onPress ? 'button' : undefined}
+            accessibilityLabel={editable || onPress ? `Casilla ${index + 1} del código` : undefined}
+            disabled={!editable && !onPress}
+            onPress={handlePress}
             style={[
               styles.otp,
               (char || active) && { borderColor: colors.green },
             ]}
           >
             <Text style={styles.otpText}>{secret ? (char ? '•' : '') : char}</Text>
-          </View>
+          </Pressable>
         )
       })}
     </View>
@@ -966,19 +989,7 @@ export function PlinMark({ size = 32 }) {
   )
 }
 
-export function QrCode({ value, cell = 6 }) {
-  const matrix = useMemo(() => qrMatrix(value), [value])
-  const dim = matrix.length * cell
-  return (
-    <View style={{ width: dim, height: dim, backgroundColor: '#FFFFFF', flexDirection: 'row', flexWrap: 'wrap' }}>
-      {matrix.flat().map((on, index) => (
-        <View key={index} style={{ width: cell, height: cell, backgroundColor: on ? '#1B1B1B' : '#FFFFFF' }} />
-      ))}
-    </View>
-  )
-}
-
-export function YapePanel({ brand = 'yape', cents, phone, note = '', onNote, showNote = true }) {
+export function YapePanel({ brand = 'yape', cents, phone, qr, note = '', onNote, showNote = true }) {
   const styles = useScreenStyles()
   const ui = useUiStyles()
   const [hearing, setHearing] = useState(false)
@@ -990,8 +1001,6 @@ export function YapePanel({ brand = 'yape', cents, phone, note = '', onNote, sho
   const plin = brand === 'plin'
   const name = plin ? 'Plin' : 'Yape'
   const color = plin ? colors.teal : colors.purple
-  const payload = `CajaFacil ${name} ${shown} ${money}`
-
   function stopNote() {
     hearingRef.current = false
     setHearing(false)
@@ -1051,10 +1060,19 @@ export function YapePanel({ brand = 'yape', cents, phone, note = '', onNote, sho
         {plin ? <PlinMark size={52} /> : <YapeMark size={52} />}
         <Text style={[styles.payBrandName, { fontSize: 22, color }]}>{name}</Text>
       </View>
-      <Text style={styles.payHint}>Código solo de {name}. El cliente abre {name} y lo escanea.</Text>
-      <View style={styles.qrBox}>
-        <QrCode value={payload} />
-      </View>
+      <Text style={styles.payHint}>
+        {qr ? `El cliente abre ${name} y escanea este QR.` : `Pago por ${name} al número registrado.`}
+      </Text>
+      {qr ? (
+        <View style={styles.qrBox}>
+          <Image
+            source={{ uri: qr }}
+            resizeMode="contain"
+            style={{ width: 220, height: 220 }}
+            accessibilityLabel={`QR de ${name}`}
+          />
+        </View>
+      ) : null}
       <Text style={styles.payLabel}>Monto a pagar</Text>
       <Text style={[styles.payAmount, { color }]}>{money}</Text>
       {shown ? <Text style={styles.payPhone}>Al número {shown}</Text> : null}

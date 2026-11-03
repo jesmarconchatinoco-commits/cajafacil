@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  useWindowDimensions,
+  TextInput,
   View,
 } from 'react-native'
 import { colors, helpText, methods, periods, quickAmounts, voiceText } from '../estilos/tema'
@@ -53,7 +53,6 @@ import {
   Button,
   ErrorText,
   Field,
-  Keypad,
   Logo,
   MethodOption,
   MicMark,
@@ -68,24 +67,25 @@ import {
   Sub,
   Title,
   TopBar,
+  SALE_LEAVE_BODY,
+  SALE_LEAVE_TITLE,
 } from './interfaz'
 
-import { AmountBox, DetailRow, Frame, Tab, cartItems, productText } from './marco'
+import { DetailRow, Frame, Tab, cartItems, productText } from './marco'
 export function SaleAmount() {
   const styles = useScreenStyles()
-  const { state, draft, setDraft, pop, push, clearSale, goHome } = useApp()
+  const { draft, setDraft, pop, push, clearSale, goHome } = useApp()
   const { pad, short } = usePhone()
   const [ask, setAsk] = useState(null)
   const [typed, setTyped] = useState('')
-  const [flash, setFlash] = useState(false)
-  const entry = typedCents(typed)
+  const [amountFocused, setAmountFocused] = useState(false)
   const [hearing, setHearing] = useState(false)
   const [said, setSaid] = useState('')
   const [hearNote, setHearNote] = useState('')
+  const entry = typedCents(typed)
   const lines = draft.sale.lines || []
   const total = sumCents(lines) + entry
   const stopHear = useRef(null)
-  const flashTimer = useRef(null)
   const linesRef = useRef(lines)
   const saidRef = useRef('')
   const heardBase = useRef([])
@@ -95,7 +95,6 @@ export function SaleAmount() {
   useEffect(() => {
     return () => {
       if (stopHear.current) stopHear.current()
-      if (flashTimer.current) clearTimeout(flashTimer.current)
       stopAloud()
     }
   }, [])
@@ -115,6 +114,30 @@ export function SaleAmount() {
     return remember([...linesRef.current, ...extra])
   }
 
+  function addTypedAmount() {
+    if (entry <= 0) return
+    addAmounts([entry])
+    setTyped('')
+    setDraft((current) => ({
+      ...current,
+      sale: { ...current.sale, pendingCents: 0 },
+    }))
+  }
+
+  function changeTypedAmount(text) {
+    const normalized = text.replace(',', '.').replace(/[^\d.]/g, '')
+    const [whole = '', ...fractionParts] = normalized.split('.')
+    const fraction = fractionParts.join('').slice(0, 2)
+    const next = fractionParts.length
+      ? `${whole.slice(0, 6)}.${fraction}`
+      : whole.slice(0, 6)
+    setTyped(next)
+    setDraft((current) => ({
+      ...current,
+      sale: { ...current.sale, pendingCents: typedCents(next) },
+    }))
+  }
+
   function finishHear() {
     if (!hearingRef.current) return
     hearingRef.current = false
@@ -127,57 +150,11 @@ export function SaleAmount() {
     setSaid('')
     if (!found.length) return
     remember([...heardBase.current, ...found])
-    setTyped('')
-  }
-
-  function poke() {
-    setFlash(true)
-    if (flashTimer.current) clearTimeout(flashTimer.current)
-    flashTimer.current = setTimeout(() => setFlash(false), 180)
-  }
-
-  function typeDigit(digit) {
-    setTyped((current) => {
-      if (current.includes('.')) {
-        const frac = current.split('.')[1]
-        if (frac.length >= 2) return current
-        return `${current}${digit}`
-      }
-      if (current === '0') return String(digit)
-      if (current.length >= 6) return current
-      return `${current}${digit}`
-    })
-    poke()
-  }
-
-  function typeDot() {
-    setTyped((current) => (current.includes('.') ? current : `${current || '0'}.`))
-    poke()
-  }
-
-  function typeBackspace() {
-    if (typed) {
-      setTyped((current) => current.slice(0, -1))
-      poke()
-      return
-    }
-    if (linesRef.current.length) {
-      remember(linesRef.current.slice(0, -1))
-      poke()
-    }
-  }
-
-  function typeEquals() {
-    if (entry > 0) {
-      addAmounts([entry])
-      setTyped('')
-    }
-    poke()
   }
 
   function leave(where) {
     finishHear()
-    if (state.settings.confirmLeave && (sumCents(linesRef.current) > 0 || entry > 0)) {
+    if (sumCents(linesRef.current) > 0 || entry > 0 || Number(draft.sale.pendingCents) > 0) {
       setAsk(where)
       return
     }
@@ -188,9 +165,12 @@ export function SaleAmount() {
 
   function goPay() {
     finishHear()
-    const nextLines = entry > 0 ? [...linesRef.current, entry] : linesRef.current
-    const cents = remember(nextLines)
+    const cents = addAmounts(entry > 0 ? [entry] : [])
     setTyped('')
+    setDraft((current) => ({
+      ...current,
+      sale: { ...current.sale, pendingCents: 0 },
+    }))
     if (cents <= 0) return
     push('salePay')
   }
@@ -201,15 +181,12 @@ export function SaleAmount() {
       return
     }
     if (!canListen()) {
-      const message = 'Aquí no puedo escuchar. Escribe el monto y toca el más.'
+      const message = 'Aquí no puedo escuchar. Escribe el monto o elige un importe.'
       setHearNote(message)
       speakAloud(message)
       return
     }
-    if (entry > 0) {
-      remember([...linesRef.current, entry])
-      setTyped('')
-    }
+    if (entry > 0) addTypedAmount()
     heardBase.current = linesRef.current.slice()
     saidRef.current = ''
     setSaid('')
@@ -238,8 +215,6 @@ export function SaleAmount() {
   const liveTotal = sumCents(heardBase.current) + sumCents(parseSpokenAmounts(said))
   const shown = hearing ? liveTotal : total
 
-  const siguiente = <Button label="Siguiente" disabled={shown <= 0} onPress={goPay} />
-
   return (
     <View style={styles.screen}>
       <TopBar onBack={() => leave('back')} onHome={() => leave('home')} helpTopic="sale" />
@@ -257,27 +232,62 @@ export function SaleAmount() {
       >
         <Step>Paso 1 de 2</Step>
         <Title>¿Cuánto es la venta?</Title>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={hearing ? 'Dejar de escuchar' : 'Hablar el monto de la venta'}
-          onPress={toggleHear}
-          style={({ pressed }) => [
-            styles.hearBtn,
-            { backgroundColor: hearing ? colors.red : colors.green },
-            pressed && { opacity: 0.86 },
-          ]}
-        >
-          <MicMark size={28} />
-          <Text style={styles.hearText}>{hearing ? 'Te escucho' : 'Hablar'}</Text>
-        </Pressable>
-        {hearNote && !hearing ? <Text style={styles.hearNote}>{hearNote}</Text> : null}
-        <AmountBox
-          cents={shown}
-          label={!hearing && typed ? `S/${typed}` : ''}
-          borderColor={hearing ? colors.red : flash ? colors.green : colors.blue}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 10 }}>
+          <View style={[styles.amountBox, { flex: 1, minWidth: 0, marginBottom: 14, borderColor: hearing ? colors.red : colors.blue }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>S/</Text>
+              <TextInput
+                accessibilityLabel="Monto de la venta en soles"
+                keyboardType="decimal-pad"
+                returnKeyType="done"
+                blurOnSubmit
+                value={amountFocused ? typed : (typed ? (Number(typed) || 0).toFixed(2) : '')}
+                placeholder="0.00"
+                placeholderTextColor={colors.muted}
+                underlineColorAndroid="transparent"
+                selectionColor={colors.blue}
+                onFocus={() => setAmountFocused(true)}
+                onBlur={() => setAmountFocused(false)}
+                onChangeText={changeTypedAmount}
+                onSubmitEditing={addTypedAmount}
+                style={{
+                  color: colors.text,
+                  fontSize: 40,
+                  fontWeight: '800',
+                  letterSpacing: -0.8,
+                  textAlign: 'center',
+                  flex: 1,
+                  borderWidth: 0,
+                  backgroundColor: 'transparent',
+                  padding: 0,
+                }}
+              />
+            </View>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Agregar monto al registro"
+            disabled={entry <= 0}
+            onPress={addTypedAmount}
+            style={({ pressed }) => [
+              {
+                width: 104,
+                minHeight: 76,
+                borderRadius: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: entry > 0 ? colors.green : colors.disabled,
+              },
+              pressed && entry > 0 && { opacity: 0.86 },
+            ]}
+          >
+            <Text style={{ color: entry > 0 ? colors.white : colors.disabledText, fontWeight: '800'}}>
+              Agregar
+            </Text>
+          </Pressable>
+        </View>
         <View style={styles.chips}>
-          {quickAmounts.map((amount) => (
+          {quickAmounts.filter((amount) => [500, 1000, 2000].includes(amount.cents)).map((amount) => (
             <Pressable
               key={amount.cents}
               accessibilityRole="button"
@@ -285,32 +295,22 @@ export function SaleAmount() {
               onPress={() => addAmounts([amount.cents])}
               style={styles.chip}
             >
-              <Text style={styles.chipText}>{amount.label}</Text>
+              <Text style={[styles.chipText, { color: '#000000' }]}>{amount.label}</Text>
             </Pressable>
           ))}
         </View>
-        <View style={styles.keyArea}>
-          <Keypad
-            onAdd={() => { addAmounts([entry]); setTyped(''); poke() }}
-            onEquals={typeEquals}
-            addEnabled={entry > 0}
-            onDigit={typeDigit}
-            onDot={typeDot}
-            onDelete={typeBackspace}
-          />
-        </View>
         {lines.length ? (
-          <View style={[styles.chips, { marginTop: 14, alignItems: 'center' }]}>
+          <View style={{ marginTop: 6, marginBottom: 12, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
+            <Text style={{ color: colors.text, fontWeight: '800' }}>Tu registro:</Text>
             {lines.map((cents, index) => (
-              <View key={`${cents}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {index > 0 ? <Text style={styles.sumPlus}>+</Text> : null}
+              <View key={`${cents}-${index}`} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {index > 0 ? <Text style={{ color: colors.green, fontWeight: '800' }}> + </Text> : null}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Quitar ${formatMoney(cents)}`}
                   onPress={() => remember(lines.filter((_, item) => item !== index))}
-                  style={styles.chip}
                 >
-                  <Text style={styles.chipText}>{formatMoney(cents)}</Text>
+                  <Text style={{ color: colors.blue, fontWeight: '700' }}>{formatMoney(cents)}</Text>
                 </Pressable>
               </View>
             ))}
@@ -320,14 +320,37 @@ export function SaleAmount() {
           <Text style={styles.cajaLabel}>Total de la venta</Text>
           <Text style={styles.cajaMoney}>{formatMoney(total)}</Text>
         </View>
-        {short ? null : <View style={{ marginTop: 16 }}>{siguiente}</View>}
       </ScrollView>
-      {short ? <View style={[styles.footer, { paddingHorizontal: pad }]}>{siguiente}</View> : null}
+      <View style={{ paddingHorizontal: pad, paddingTop: 6, paddingBottom: short ? 8 : 14, gap: 8 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={hearing ? 'Dejar de escuchar' : 'Hablar el monto de la venta'}
+          onPress={toggleHear}
+          style={({ pressed }) => [
+            styles.hearBtn,
+            {
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              borderColor: hearing ? colors.red : colors.green,
+              marginBottom: 0,
+              minHeight: 52,
+            },
+            pressed && { opacity: 0.86 },
+          ]}
+        >
+          <MicMark size={24} color={hearing ? colors.red : colors.green} />
+          <Text style={[styles.hearText, { color: hearing ? colors.red : colors.green }]}>
+            {hearing ? 'Te escucho' : 'Hablar'}
+          </Text>
+        </Pressable>
+        {hearNote && !hearing ? <Text style={styles.hearNote}>{hearNote}</Text> : null}
+        <Button label="Siguiente" disabled={shown <= 0} onPress={goPay} />
+      </View>
       {ask ? (
-        <ModalCard title="¿Salir sin guardar?" body="Si sales ahora, esta venta no queda anotada.">
-          <Button label="Seguir aquí" onPress={() => setAsk(null)} />
+        <ModalCard title={SALE_LEAVE_TITLE} body={SALE_LEAVE_BODY}>
+          <Button label="Seguir en la venta" onPress={() => setAsk(null)} />
           <Button
-            label={ask === 'home' ? 'Ir al inicio' : 'Salir sin guardar'}
+            label={ask === 'home' ? 'Salir al inicio' : 'Salir de la venta'}
             variant="red"
             onPress={() => {
               clearSale()
@@ -346,6 +369,7 @@ export function SalePay() {
   const { state, draft, setDraft, pop, push, patch, clearSale } = useApp()
   const sale = draft.sale
   const method = sale.method ? methods[sale.method] : null
+  const user = sessionUser(state)
   const people = state.sessionUserId ? debtors(state) : []
   const canSave = sale.cents > 0 && sale.method && (sale.method !== 'fiado' || sale.clientName.trim())
 
@@ -377,7 +401,9 @@ export function SalePay() {
         </View>
         <Text style={styles.label}>¿Cómo paga?</Text>
         <View style={{ gap: 10 }}>
-          {Object.entries(methods).map(([id, item]) => (
+          {Object.entries(methods)
+            .filter(([id]) => (id !== 'yape' && id !== 'plin') || user?.[`${id}Enabled`])
+            .map(([id, item]) => (
             <MethodOption
               key={id}
               method={item}
@@ -391,7 +417,8 @@ export function SalePay() {
           <YapePanel
             brand={sale.method}
             cents={sale.cents}
-            phone={payPhone(sessionUser(state), sale.method)}
+            phone={payPhone(user, sale.method)}
+            qr={user?.[`${sale.method}Qr`]}
             note={sale.note}
             onNote={(note) => setDraft((current) => ({ ...current, sale: { ...current.sale, note } }))}
           />
@@ -479,11 +506,31 @@ export function Sales() {
   const styles = useScreenStyles()
   const { state, push, pop } = useApp()
   const [tab, setTab] = useState('guardadas')
-  const rows = salesOf(state, { voided: tab === 'anuladas' })
+  const rows = salesOf(state, { voided: tab === 'anuladas', all: true })
   const summary = periodSummary(state, 'hoy')
+  const days = []
+  for (const sale of rows) {
+    const date = new Date(sale.at)
+    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+    let day = days[days.length - 1]
+    if (!day || day.key !== key) {
+      day = {
+        key,
+        label: date.toLocaleDateString('es-PE', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+        sales: [],
+      }
+      days.push(day)
+    }
+    day.sales.push(sale)
+  }
   return (
     <Frame onBack={() => pop()} helpTopic="sales">
-      <Title>Ventas de hoy</Title>
+      <Title>Todas las ventas</Title>
       <View style={styles.tabs}>
         <Tab label="Guardadas" active={tab === 'guardadas'} onPress={() => setTab('guardadas')} />
         <Tab label="Anuladas" tone="red" active={tab === 'anuladas'} onPress={() => setTab('anuladas')} />
@@ -492,35 +539,42 @@ export function Sales() {
         <Text style={[styles.empty, tab === 'anuladas' && styles.voidEmpty]}>
           {tab === 'anuladas'
             ? 'No hay ventas anuladas. Cuando anulas una, aparece aquí y sale de la caja.'
-            : 'Todavía no anotas ventas hoy.'}
+            : 'Todavía no anotas ventas.'}
         </Text>
       ) : (
-        <View style={{ gap: 10 }}>
-          {rows.map((sale) => (
-            <Pressable
-              key={sale.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Venta de ${formatMoney(sale.cents)}`}
-              onPress={() => push('saleDetail', { saleId: sale.id })}
-              style={({ pressed }) => [styles.personRow, tab === 'anuladas' && styles.voidRow, pressed && { opacity: 0.8 }]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.personMeta}>{formatClock(sale.at)}</Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, alignItems: 'center' }}>
-                  <View style={[styles.mini, { backgroundColor: methods[sale.method].soft }]}>
-                    <Text style={[styles.miniText, { color: methods[sale.method].color }]}>
-                      {methods[sale.method].label}
-                    </Text>
-                  </View>
-                  <Text style={styles.personMeta} numberOfLines={1}>
-                    {sale.kind === 'cobro'
-                      ? `Cobro de ${sale.clientName}`
-                      : productText(sale.products) || sale.clientName}
-                  </Text>
-                </View>
+        <View>
+          {days.map((day) => (
+            <View key={day.key}>
+              <Text style={[styles.personName, { marginBottom: 8 }]}>{day.label}</Text>
+              <View style={{ gap: 10 }}>
+                {day.sales.map((sale) => (
+                  <Pressable
+                    key={sale.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Venta de ${formatMoney(sale.cents)}`}
+                    onPress={() => push('saleDetail', { saleId: sale.id })}
+                    style={({ pressed }) => [styles.personRow, tab === 'anuladas' && styles.voidRow, pressed && { opacity: 0.8 }]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.personMeta}>{formatClock(sale.at)}</Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, alignItems: 'center' }}>
+                        <View style={[styles.mini, { backgroundColor: methods[sale.method].soft }]}>
+                          <Text style={[styles.miniText, { color: methods[sale.method].color }]}>
+                            {methods[sale.method].label}
+                          </Text>
+                        </View>
+                        <Text style={styles.personMeta} numberOfLines={1}>
+                          {sale.kind === 'cobro'
+                            ? `Cobro de ${sale.clientName}`
+                            : productText(sale.products) || sale.clientName}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.personMoney, tab === 'anuladas' && styles.voidMoney]}>{formatMoney(sale.cents)} ›</Text>
+                  </Pressable>
+                ))}
               </View>
-              <Text style={[styles.personMoney, tab === 'anuladas' && styles.voidMoney]}>{formatMoney(sale.cents)} ›</Text>
-            </Pressable>
+            </View>
           ))}
         </View>
       )}
@@ -566,7 +620,13 @@ export function SaleDetail() {
         ) : null}
         <View style={[styles.detailCard, sale.voided && styles.voidRow]}>
           <MoneyBig cents={sale.cents} color={sale.voided ? StyleSheet.flatten(styles.voidMoney).color : colors.text} />
-          <DetailRow label="Hora" value={formatWhen(sale.at)} />
+          <DetailRow label="Hora de la venta" value={formatWhen(sale.at)} />
+          {sale.voided ? (
+            <DetailRow
+              label="Hora de la anulación"
+              value={sale.voidAt != null ? formatWhen(sale.voidAt) : 'No disponible'}
+            />
+          ) : null}
           <DetailRow label="Cómo pagó" value={methods[sale.method].label} />
           {sale.kind === 'cobro' ? <DetailRow label="Tipo" value={`Cobro de ${sale.clientName}`} /> : null}
           {sale.clientName && sale.kind !== 'cobro' ? <DetailRow label="Fiado a" value={sale.clientName} /> : null}

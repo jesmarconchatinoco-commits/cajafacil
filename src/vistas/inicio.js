@@ -100,13 +100,11 @@ export function Home() {
           {summary.count === 1 ? '1 venta registrada' : `${summary.count} ventas registradas`}
         </Text>
       </View>
+      <Button label="Ver todas las ventas" variant="outline" onPress={() => push('sales')} />
+      <View style={{ flexGrow: 1, minHeight: 16 }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
         {[
-          { label: 'Nueva venta', variant: 'green', onPress: () => { clearSale(); push('saleAmount') } },
-          { label: 'Ventas de hoy', variant: 'outline', onPress: () => push('sales') },
-          { label: 'Balance', variant: 'outline', onPress: () => push('balance') },
-          { label: 'Fiados', variant: 'brown', onPress: () => push('fiados') },
-          { label: 'Cerrar sesión', variant: 'red', onPress: () => setAskOut(true) },
+          { label: 'Nueva venta', variant: 'green', onPress: () => { clearSale(); push('saleAmount') } }
         ].map((item) => (
           <View key={item.label} style={{ width: wide ? '48%' : '100%', flexGrow: wide ? 1 : 0 }}>
             <Button label={item.label} variant={item.variant} onPress={item.onPress} />
@@ -116,7 +114,7 @@ export function Home() {
       {askOut ? (
         <ModalCard
           title="¿Cerrar sesión?"
-          body="Vas a salir de tu caja. Las ventas se quedan guardadas en este celular."
+          body="Las ventas se quedan guardadas en este celular."
         >
           <Button label="Seguir aquí" onPress={() => setAskOut(false)} />
           <Button label="Sí, cerrar sesión" variant="red" onPress={signOut} />

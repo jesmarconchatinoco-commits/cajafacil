@@ -168,6 +168,8 @@ function createUiStyles(p) {
   otpText: { fontSize: 22, fontWeight: '800', color: p.text },
   modalRoot: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+    elevation: 1000,
     backgroundColor: 'rgba(28, 28, 28, 0.46)',
     alignItems: 'center',
     justifyContent: 'center',

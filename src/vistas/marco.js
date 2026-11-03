@@ -1,27 +1,30 @@
 // Marco común de cada pantalla: barra, lista del carrito y filas.
 import { useState } from 'react'
-import { Pressable, ScrollView, View } from 'react-native'
+import { Keyboard, Pressable, ScrollView, View } from 'react-native'
 import { useScreenStyles } from '../estilos/pantallas'
 import { formatQty } from '../js/logica.mjs'
 import { useApp } from '../js/estado'
 import { usePhone } from '../js/telefono'
-import { Button, ModalCard, MoneyBig, TopBar } from './interfaz'
+import { Button, ModalCard, MoneyBig, SALE_LEAVE_BODY, SALE_LEAVE_TITLE, TopBar } from './interfaz'
 import { Text } from './texto'
 
-export function Frame({ children, footer, helpTopic, voice, onBack, onHome, mode = 'back', dirty = false, scroll = true }) {
+export function Frame({ children, footer, helpTopic, voice, onBack, onHome, mode = 'back', dirty = false, scroll = true, dismissKeyboardOnTouch = false }) {
   const styles = useScreenStyles()
   const { pad, wide } = usePhone()
-  const { goHome, clearSale, state } = useApp()
+  const { goHome, clearSale } = useApp()
   const [askHome, setAskHome] = useState(false)
   function home() {
-    if (dirty && state.settings.confirmLeave) {
+    if (dirty) {
       setAskHome(true)
       return
     }
     goHome()
   }
   return (
-    <View style={styles.screen}>
+    <View
+      style={styles.screen}
+      onTouchStart={dismissKeyboardOnTouch ? () => Keyboard.dismiss() : undefined}
+    >
       <TopBar mode={mode} onBack={onBack} onHome={onHome || home} helpTopic={helpTopic} voice={voice} />
       {scroll ? (
         <ScrollView
@@ -37,8 +40,8 @@ export function Frame({ children, footer, helpTopic, voice, onBack, onHome, mode
       )}
       {footer ? <View style={[styles.footer, { paddingHorizontal: pad }]}>{footer}</View> : null}
       {askHome ? (
-        <ModalCard title="¿Salir sin guardar?" body="Si vas al inicio ahora, esta venta no queda anotada.">
-          <Button label="Seguir aquí" onPress={() => setAskHome(false)} />
+        <ModalCard title={SALE_LEAVE_TITLE} body={SALE_LEAVE_BODY}>
+          <Button label="Seguir en la venta" onPress={() => setAskHome(false)} />
           <Button
             label="Ir al inicio"
             variant="red"

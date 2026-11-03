@@ -78,10 +78,10 @@ export const helpText = {
   login:
     'Iniciar sesión pide tu celular y tu clave. La cuenta de demostración es Flor: 999 888 777, clave 123456.',
   home:
-    'Nueva venta anota un cobro con la calculadora. Ventas de hoy lista lo del día. Balance junta la caja. Fiados es lo que te deben. Abajo, los iconos llevan a Inicio, Venta, Balance, Fiados y Cuenta. Escuchar explica cada pantalla.',
+    'Nueva venta anota un cobro con la calculadora. Ver todas las ventas abre el historial por fecha. Balance junta la caja. Fiados es lo que te deben. Abajo, los iconos llevan a Inicio, Venta, Balance, Fiados y Cuenta. Escuchar explica cada pantalla.',
   sale: 'Escribe el monto, usa el punto para los centavos y toca el signo más. El igual deja el total. La flecha roja borra el último número. También puedes tocar Hablar y decirlo. Después marcas efectivo, Yape, Plin o fiado. El número de operación se escribe o se dice con el botón Decir.',
   sales:
-    'Aquí están las ventas de hoy. Abre una para ver el detalle. Si te equivocaste, puedes anularla.',
+    'Aquí están todas las ventas, organizadas por fecha y de la más reciente a la más antigua. Abre una para ver el detalle. Si te equivocaste, puedes anularla.',
   balance:
     'Cambia entre hoy, semana, quincena y mes. El recuadro de abajo es lo que todavía te deben.',
   account:
@@ -110,11 +110,11 @@ export const voiceText = {
   login:
     'Este módulo es Iniciar sesión. Escribe tu celular y tu clave. La cuenta de prueba es Flor. Su celular es nueve, nueve, nueve, ocho, ocho, ocho, siete, siete, siete. Su clave es uno, dos, tres, cuatro, cinco, seis.',
   home:
-    'Este es el inicio de tu bodega. Nueva venta anota un cobro con la calculadora. Ventas de hoy muestra lo del día. Balance junta la caja. Fiados es lo que te deben. Abajo hay iconos de celular: Inicio, Venta, Balance, Fiados y Cuenta. Cerrar sesión te saca de la caja.',
+    'Este es el inicio de tu bodega. Nueva venta anota un cobro con la calculadora. Ver todas las ventas abre el historial por fecha. Balance junta la caja. Fiados es lo que te deben. Abajo hay iconos de celular: Inicio, Venta, Balance, Fiados y Cuenta. Cerrar sesión te saca de la caja.',
   sale:
     'Este módulo anota una venta. Escribes el monto, el punto si hay centavos, y tocas el signo más para sumar otro. El botón igual deja el total. La flecha roja borra el último número o el último monto sumado. También puedes tocar Hablar y decir el monto, por ejemplo cinco soles. Después eliges si pagaron en efectivo, con Yape, con Plin o se lo llevaron fiado. El número de operación se puede decir tocando Decir.',
   sales:
-    'Este módulo muestra las ventas de hoy. Abre una para ver el detalle. Si te equivocaste, puedes anularla. La app pregunta antes de anular.',
+    'Este módulo muestra todas las ventas, organizadas por fecha y de la más reciente a la más antigua. Abre una para ver el detalle. Si te equivocaste, puedes anularla. La app pregunta antes de anular.',
   balance:
     'Este módulo junta el dinero de la caja. Puedes ver hoy, la semana, la quincena o el mes. El recuadro de abajo es lo que todavía te deben.',
   account:
