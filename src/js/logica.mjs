@@ -102,7 +102,12 @@ export function ensureCatalog(state) {
     const source = Array.isArray(book.catalog) ? book.catalog : defaultCatalog()
     books[id] = { ...book, catalog: source.map(completeProduct) }
   }
-  return { ...state, books }
+  const users = (state.users || []).map((user) => ({
+    ...user,
+    yapeEnabled: user.yapeEnabled === true,
+    plinEnabled: user.plinEnabled === true,
+  }))
+  return { ...state, books, users }
 }
 
 export function catalogOf(state) {
@@ -203,6 +208,8 @@ export function createInitialState(now = new Date()) {
         pin: DEMO_PIN,
         avatar: 'woman',
         usePhoto: true,
+        yapeEnabled: false,
+        plinEnabled: false,
       },
     ],
     books: {
@@ -353,10 +360,10 @@ export function getSale(state, saleId) {
   return currentBook(state)?.sales.find((sale) => sale.id === saleId) || null
 }
 
-export function salesOf(state, { voided, now = new Date() }) {
+export function salesOf(state, { voided, now = new Date(), all = false }) {
   const book = currentBook(state)
   return book.sales
-    .filter((sale) => sale.voided === voided && isSameDay(sale.at, now))
+    .filter((sale) => sale.voided === voided && (all || isSameDay(sale.at, now)))
     .sort((a, b) => b.at - a.at)
 }
 
@@ -398,6 +405,9 @@ export function login(state, { phone, pin }) {
 
 export function register(state, { name, phone, pin, avatar, usePhoto }) {
   const digits = phoneDigits(phone)
+  if (digits.length !== 9 || !digits.startsWith('9')) {
+    return { ok: false, error: 'El celular debe tener 9 dígitos y empezar con 9.', state }
+  }
   if (state.users.some((user) => user.phone === digits)) {
     return { ok: false, error: 'Ese celular ya tiene una cuenta. Entra con tu clave.', state }
   }
@@ -410,8 +420,12 @@ export function register(state, { name, phone, pin, avatar, usePhoto }) {
     pin,
     avatar,
     usePhoto,
-    yapePhone: digits,
-    plinPhone: digits,
+    yapePhone: '',
+    plinPhone: '',
+    yapeEnabled: false,
+    plinEnabled: false,
+    yapeQr: '',
+    plinQr: '',
   })
   next.books[id] = emptyBook()
   next.sessionUserId = id
@@ -433,8 +447,8 @@ export function updateAccount(state, input) {
   if (typeof input.usePhoto === 'boolean') user.usePhoto = input.usePhoto
   const yape = phoneDigits(input.yapePhone)
   const plin = phoneDigits(input.plinPhone)
-  if (yape.length !== 9) return { ok: false, error: 'El celular de Yape necesita 9 números.', state }
-  if (plin.length !== 9) return { ok: false, error: 'El celular de Plin necesita 9 números.', state }
+  if (yape && yape.length !== 9) return { ok: false, error: 'El celular de Yape necesita 9 números.', state }
+  if (plin && plin.length !== 9) return { ok: false, error: 'El celular de Plin necesita 9 números.', state }
   user.yapePhone = yape
   user.plinPhone = plin
   const currentPin = String(input.currentPin || '')
@@ -446,6 +460,23 @@ export function updateAccount(state, input) {
     if (nextPin !== repeatPin) return { ok: false, error: 'La clave nueva no coincide.', state }
     user.pin = nextPin
   }
+  return { ok: true, state: next }
+}
+
+export function updateWallet(state, brand, { enabled, phone, qr }) {
+  if (brand !== 'yape' && brand !== 'plin') {
+    return { ok: false, error: 'Selecciona Yape o Plin.', state }
+  }
+  const next = clone(state)
+  const user = next.users.find((item) => item.id === next.sessionUserId)
+  if (!user) return { ok: false, error: 'Entra a tu cuenta para configurar.', state }
+  const digits = phoneDigits(phone)
+  if (enabled && (digits.length !== 9 || !digits.startsWith('9'))) {
+    return { ok: false, error: `El celular de ${brand === 'yape' ? 'Yape' : 'Plin'} debe tener 9 dígitos y empezar con 9.`, state }
+  }
+  user[`${brand}Enabled`] = Boolean(enabled)
+  if (digits) user[`${brand}Phone`] = digits
+  if (typeof qr === 'string') user[`${brand}Qr`] = qr
   return { ok: true, state: next }
 }
 
@@ -519,12 +550,13 @@ export function addSale(state, input) {
   return { ok: true, state: next, saleId, personId }
 }
 
-export function voidSale(state, saleId) {
+export function voidSale(state, saleId, voidAt = Date.now()) {
   const next = clone(state)
   const book = next.books[next.sessionUserId]
   const sale = book.sales.find((item) => item.id === saleId)
   if (!sale || sale.voided) return next
   sale.voided = true
+  sale.voidAt = voidAt
   adjustStock(book, sale.products, 1)
   for (const person of book.people) {
     person.movements = person.movements.filter((movement) => movement.saleId !== saleId)

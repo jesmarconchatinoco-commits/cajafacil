@@ -5,6 +5,7 @@ import {
   addSale,
   cobrar,
   createInitialState,
+  ensureCatalog,
   formatMoney,
   formatPhone,
   login,
@@ -12,9 +13,11 @@ import {
   periodSummary,
   personDebt,
   register,
+  salesOf,
   sessionUser,
   totalDebt,
   updateAccount,
+  updateWallet,
   voidSale,
 } from './logica.mjs'
 import { qrMatrix } from './qr.mjs'
@@ -53,9 +56,32 @@ test('anotar una venta en efectivo entra a la caja', () => {
 
 test('anular un fiado lo saca de la caja y de la deuda', () => {
   let state = flor()
-  state = voidSale(state, 's4')
+  const voidAt = now.getTime() + 1000
+  state = voidSale(state, 's4', voidAt)
   assert.equal(formatMoney(periodSummary(state, 'hoy', now).total), 'S/45.50')
   assert.equal(formatMoney(totalDebt(state)), 'S/7.00')
+  assert.equal(state.books.flor.sales.find((sale) => sale.id === 's4').voidAt, voidAt)
+})
+
+test('el historial incluye ventas de todas las fechas en orden descendente', () => {
+  const state = flor()
+  state.books.flor.sales.push({
+    id: 's-old',
+    at: new Date(2026, 9, 29, 21, 0).getTime(),
+    cents: 500,
+    method: 'efectivo',
+    products: ['Pan'],
+    note: '',
+    clientName: '',
+    kind: 'venta',
+    voided: false,
+  })
+
+  assert.equal(salesOf(state, { voided: false, now }).length, 4)
+  assert.deepEqual(
+    salesOf(state, { voided: false, now, all: true }).map((sale) => sale.id),
+    ['s4', 's3', 's2', 's1', 's-old'],
+  )
 })
 
 test('anotar fiado y cobrar actualizan deuda y caja', () => {
@@ -94,6 +120,15 @@ test('el pan se vende en porciones y descuenta el stock', () => {
 })
 
 test('una cuenta nueva empieza en cero y el celular no se repite', () => {
+  const invalidPhone = register(createInitialState(now), {
+    name: 'Rosa',
+    phone: '887654321',
+    pin: '111111',
+    avatar: 'woman',
+    usePhoto: true,
+  })
+  assert.equal(invalidPhone.ok, false)
+
   const fresh = register(createInitialState(now), {
     name: 'Rosa',
     phone: '987654321',
@@ -102,6 +137,8 @@ test('una cuenta nueva empieza en cero y el celular no se repite', () => {
     usePhoto: true,
   })
   assert.equal(fresh.ok, true)
+  assert.equal(sessionUser(fresh.state).yapeEnabled, false)
+  assert.equal(sessionUser(fresh.state).plinEnabled, false)
   assert.equal(periodSummary(fresh.state, 'hoy', now).total, 0)
   const duplicated = register(fresh.state, {
     name: 'Otra',
@@ -144,6 +181,36 @@ test('la configuración guarda icono, clave y celulares de Yape y Plin', () => {
     repeatPin: '111111',
   })
   assert.equal(bad.ok, false)
+})
+
+test('las billeteras empiezan desactivadas y guardan sus datos por separado', () => {
+  const state = flor()
+  const user = sessionUser(state)
+  assert.equal(user.yapeEnabled, false)
+  assert.equal(user.plinEnabled, false)
+
+  const enabled = updateWallet(state, 'yape', {
+    enabled: true,
+    phone: '987654321',
+    qr: 'data:image/png;base64,qr',
+  })
+  assert.equal(enabled.ok, true)
+  assert.equal(sessionUser(enabled.state).yapeEnabled, true)
+  assert.equal(sessionUser(enabled.state).yapePhone, '987654321')
+  assert.equal(sessionUser(enabled.state).yapeQr, 'data:image/png;base64,qr')
+  assert.equal(sessionUser(enabled.state).plinEnabled, false)
+
+  const invalid = updateWallet(state, 'plin', { enabled: true, phone: '887654321', qr: '' })
+  assert.equal(invalid.ok, false)
+})
+
+test('las cuentas existentes quedan con billeteras desactivadas por defecto', () => {
+  const migrated = ensureCatalog({
+    users: [{ id: 'old-user', phone: '999888777' }],
+    books: {},
+  })
+  assert.equal(migrated.users[0].yapeEnabled, false)
+  assert.equal(migrated.users[0].plinEnabled, false)
 })
 
 test('la voz suma los montos dichos', () => {

@@ -1,14 +1,16 @@
 // Cuenta: inicio de sesión, registro, perfil y ayuda.
 import { useState } from 'react'
 import {
+  Image,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Pressable,
   ScrollView,
   Switch,
-  useWindowDimensions,
   View,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { colors, helpText, methods, periods, voiceText } from '../estilos/tema'
 import { useScreenStyles } from '../estilos/pantallas'
 import { Text, useLook } from './texto'
@@ -36,8 +38,8 @@ import {
   removeProduct,
   salesOf,
   sessionUser,
-  setSetting,
   updateAccount,
+  updateWallet,
   totalDebt,
   voidSale,
   DEMO_CODE,
@@ -51,7 +53,6 @@ import {
   Button,
   ErrorText,
   Field,
-  Keypad,
   Logo,
   MethodOption,
   AvatarPicker,
@@ -85,7 +86,7 @@ export function Splash() {
       <View style={styles.hero}>
         <Logo size={96} />
         <Text style={styles.heroName}>CajaFácil</Text>
-        <Text style={styles.heroText}>Anota las ventas de tu bodega sin enredos.</Text>
+        <Text style={styles.heroText}>Anota las ventas de tu bodega.</Text>
       </View>
     </Frame>
   )
@@ -95,11 +96,11 @@ export function Register() {
   const { draft, setDraft, pop, push } = useApp()
   const [error, setError] = useState('')
   const phone = draft.phone.replace(/\D/g, '')
-  const ready = draft.name.trim().length >= 2 && phone.length === 9
+  const ready = draft.name.trim().length >= 2 && phone.length === 9 && phone.startsWith('9')
 
   function next() {
     if (!ready) {
-      setError('Escribe tu nombre y un celular de 9 dígitos.')
+      setError('Escribe tu nombre y un celular de 9 dígitos que empiece con 9.')
       return
     }
     setError('')
@@ -125,13 +126,15 @@ export function Register() {
           onChangeText={(name) => setDraft((current) => ({ ...current, name }))}
         />
         <Field
-          label="Celular"
+          label="Teléfono"
           value={formatPhone(draft.phone)}
           placeholder="999 888 777"
           keyboardType="number-pad"
-          onChangeText={(value) =>
-            setDraft((current) => ({ ...current, phone: value.replace(/\D/g, '').slice(0, 9) }))
-          }
+          onChangeText={(value) => {
+            const digits = value.replace(/\D/g, '').slice(0, 9)
+            if (digits && !digits.startsWith('9')) return
+            setDraft((current) => ({ ...current, phone: digits }))
+          }}
         />
       </Frame>
     </KeyboardAvoidingView>
@@ -140,65 +143,57 @@ export function Register() {
 
 export function Code() {
   const { draft, setDraft, pop, push } = useApp()
-  const { height } = useWindowDimensions()
-
-  function add(digit) {
-    setDraft((current) =>
-      current.code.length >= 6 ? current : { ...current, code: current.code + String(digit) }
-    )
-  }
 
   return (
     <Frame
       onBack={() => pop()}
       helpTopic="code"
+      dismissKeyboardOnTouch
       footer={<Button label="Confirmar" disabled={draft.code.length < 6} onPress={() => push('pin')} />}
     >
-      <Step>Paso 2 de 4</Step>
-      <Title>Escribe tu código</Title>
-      <Sub>Te enviamos un código de 6 dígitos a tu celular.</Sub>
-      <Otp value={draft.code} />
-      <Note>Si no te llega el mensaje, usa el código de demostración {DEMO_CODE}.</Note>
-      <Button
-        label="Usar código de demostración"
-        variant="outline"
-        onPress={() => setDraft((current) => ({ ...current, code: DEMO_CODE }))}
-      />
-      <View style={{ height: 18 }} />
-      <Keypad
-        keyHeight={height < 760 ? 48 : 56}
-        onDigit={add}
-        onDelete={() => setDraft((current) => ({ ...current, code: current.code.slice(0, -1) }))}
-      />
+      <View>
+        <Step>Paso 2 de 4</Step>
+        <Title>Escribe tu código</Title>
+        <Sub>Te enviamos un código de 6 dígitos a tu celular.</Sub>
+        <Otp
+          value={draft.code}
+          onChangeText={(code) => setDraft((current) => ({ ...current, code }))}
+        />
+        <Note>Si no te llega el mensaje, usa el código de demostración {DEMO_CODE}.</Note>
+        <Button
+          label="Usar código de demostración"
+          variant="outline"
+          disabled={draft.code.length >= 6}
+          onPress={() => {
+            setDraft((current) => ({ ...current, code: DEMO_CODE }))
+            Keyboard.dismiss()
+          }}
+        />
+      </View>
     </Frame>
   )
 }
 
 export function Pin() {
   const { draft, setDraft, pop, push } = useApp()
-  const { height } = useWindowDimensions()
-
-  function add(digit) {
-    setDraft((current) =>
-      current.pin.length >= 6 ? current : { ...current, pin: current.pin + String(digit) }
-    )
-  }
 
   return (
     <Frame
       onBack={() => pop()}
       helpTopic="pin"
+      dismissKeyboardOnTouch
       footer={<Button label="Confirmar" disabled={draft.pin.length < 6} onPress={() => push('avatar')} />}
     >
-      <Step>Paso 3 de 4</Step>
-      <Title>Crea tu clave</Title>
-      <Sub>Elige 6 números. Los vas a usar para entrar.</Sub>
-      <Otp value={draft.pin} secret />
-      <Keypad
-        keyHeight={height < 760 ? 48 : 56}
-        onDigit={add}
-        onDelete={() => setDraft((current) => ({ ...current, pin: current.pin.slice(0, -1) }))}
-      />
+      <View>
+        <Step>Paso 3 de 4</Step>
+        <Title>Crea tu clave</Title>
+        <Sub>Crea tu contraseña de 6 dígitos.</Sub>
+        <Otp
+          value={draft.pin}
+          secret
+          onChangeText={(pin) => setDraft((current) => ({ ...current, pin }))}
+        />
+      </View>
     </Frame>
   )
 }
@@ -332,35 +327,19 @@ export function Login() {
 
 export function Settings() {
   const styles = useScreenStyles()
-  const { state, pop, patch } = useApp()
+  const { state, pop, patch, push } = useApp()
   const user = sessionUser(state)
   const [avatar, setAvatar] = useState(user?.avatar || 'woman')
   const [usePhoto, setUsePhoto] = useState(user?.usePhoto !== false)
-  const [currentPin, setCurrentPin] = useState('')
-  const [nextPin, setNextPin] = useState('')
-  const [repeatPin, setRepeatPin] = useState('')
-  const [yapePhone, setYapePhone] = useState(user?.yapePhone || user?.phone || '')
-  const [plinPhone, setPlinPhone] = useState(user?.plinPhone || user?.phone || '')
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
 
-  function digits(value) {
-    return value.replace(/\D/g, '').slice(0, 9)
-  }
-
-  function pinDigits(value) {
-    return value.replace(/\D/g, '').slice(0, 6)
-  }
-
-  function save() {
+  function saveAppearance() {
     const result = updateAccount(state, {
       avatar,
       usePhoto,
-      yapePhone,
-      plinPhone,
-      currentPin,
-      nextPin,
-      repeatPin,
+      yapePhone: user?.yapePhone || user?.phone || '',
+      plinPhone: user?.plinPhone || user?.phone || '',
     })
     if (!result.ok) {
       setSaved(false)
@@ -368,9 +347,6 @@ export function Settings() {
       return
     }
     patch(() => result.state)
-    setCurrentPin('')
-    setNextPin('')
-    setRepeatPin('')
     setError('')
     setSaved(true)
   }
@@ -380,10 +356,17 @@ export function Settings() {
       <Frame
         onBack={() => pop()}
         helpTopic="settings"
-        footer={<Button label="Guardar" onPress={save} />}
+        footer={<Button label="Guardar cambios del perfil" onPress={saveAppearance} />}
       >
         <Title>Configurar</Title>
-        <Sub>Cambia tu icono, tu clave y los celulares de los códigos.</Sub>
+        <Sub>Administra tu contraseña y tus billeteras digitales.</Sub>
+        <View style={{ gap: 10, marginBottom: 20 }}>
+          <Button label="Actualizar contraseña" variant="outline" onPress={() => push('passwordSettings')} />
+          <Button label="Yape" variant="outline" onPress={() => push('yapeSettings')} />
+          <Button label="Plin" variant="outline" onPress={() => push('plinSettings')} />
+        </View>
+        <Text style={styles.toggleTitle}>Perfil</Text>
+        <Sub>Personaliza el icono que aparece junto a tu saludo.</Sub>
         <ErrorText>{error}</ErrorText>
         {saved ? (
           <View style={styles.readyBanner}>
@@ -407,61 +390,232 @@ export function Settings() {
             thumbColor={colors.white}
           />
         </View>
-        <Text style={styles.toggleTitle}>Tu clave</Text>
-        <Sub>Déjala vacía si no quieres cambiarla.</Sub>
-        <Field
-          label="Clave actual"
-          value={currentPin}
-          placeholder="6 números"
-          keyboardType="number-pad"
-          secureTextEntry
-          maxLength={6}
-          onChangeText={(value) => { setCurrentPin(pinDigits(value)); setSaved(false) }}
-        />
-        <Field
-          label="Clave nueva"
-          value={nextPin}
-          placeholder="6 números"
-          keyboardType="number-pad"
-          secureTextEntry
-          maxLength={6}
-          onChangeText={(value) => { setNextPin(pinDigits(value)); setSaved(false) }}
-        />
-        <Field
-          label="Repite la clave nueva"
-          value={repeatPin}
-          placeholder="6 números"
-          keyboardType="number-pad"
-          secureTextEntry
-          maxLength={6}
-          onChangeText={(value) => { setRepeatPin(pinDigits(value)); setSaved(false) }}
-        />
-        <Text style={styles.toggleTitle}>Celulares de los códigos</Text>
-        <Sub>Cada número sale solo en su código.</Sub>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <YapeMark size={28} />
-          <Text style={styles.toggleTitle}>Yape</Text>
-        </View>
-        <Field
-          label="Celular de Yape"
-          value={formatPhone(yapePhone)}
-          placeholder="999 888 777"
-          keyboardType="number-pad"
-          onChangeText={(value) => { setYapePhone(digits(value)); setSaved(false) }}
-        />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <PlinMark size={28} />
-          <Text style={styles.toggleTitle}>Plin</Text>
-        </View>
-        <Field
-          label="Celular de Plin"
-          value={formatPhone(plinPhone)}
-          placeholder="999 888 777"
-          keyboardType="number-pad"
-          onChangeText={(value) => { setPlinPhone(digits(value)); setSaved(false) }}
-        />
       </Frame>
     </KeyboardAvoidingView>
+  )
+}
+
+export function PasswordSettings() {
+  const styles = useScreenStyles()
+  const { state, pop, patch } = useApp()
+  const user = sessionUser(state)
+  const [currentPin, setCurrentPin] = useState('')
+  const [nextPin, setNextPin] = useState('')
+  const [repeatPin, setRepeatPin] = useState('')
+  const [error, setError] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  function pinDigits(value) {
+    return value.replace(/\D/g, '').slice(0, 6)
+  }
+
+  function save() {
+    if (!currentPin || !nextPin || !repeatPin) {
+      setSaved(false)
+      setError('Completa los tres campos para actualizar la contraseña.')
+      return
+    }
+    const result = updateAccount(state, {
+      avatar: user?.avatar,
+      usePhoto: user?.usePhoto,
+      yapePhone: user?.yapePhone || user?.phone || '',
+      plinPhone: user?.plinPhone || user?.phone || '',
+      currentPin,
+      nextPin,
+      repeatPin,
+    })
+    if (!result.ok) {
+      setSaved(false)
+      setError(result.error)
+      return
+    }
+    patch(() => result.state)
+    setCurrentPin('')
+    setNextPin('')
+    setRepeatPin('')
+    setError('')
+    setSaved(true)
+  }
+
+  return (
+    <Frame
+      onBack={() => pop()}
+      helpTopic="settings"
+      footer={<Button label="Actualizar contraseña" onPress={save} />}
+    >
+      <Title>Actualizar contraseña</Title>
+      <Sub>La contraseña debe tener 6 dígitos.</Sub>
+      <ErrorText>{error}</ErrorText>
+      {saved ? (
+        <View style={styles.readyBanner}>
+          <Text style={styles.readyText}>✓  La contraseña se actualizó.</Text>
+        </View>
+      ) : null}
+      <Field
+        label="Contraseña actual"
+        value={currentPin}
+        placeholder="6 dígitos"
+        keyboardType="number-pad"
+        secureTextEntry
+        maxLength={6}
+        onChangeText={(value) => { setCurrentPin(pinDigits(value)); setSaved(false) }}
+      />
+      <Field
+        label="Contraseña nueva"
+        value={nextPin}
+        placeholder="6 dígitos"
+        keyboardType="number-pad"
+        secureTextEntry
+        maxLength={6}
+        onChangeText={(value) => { setNextPin(pinDigits(value)); setSaved(false) }}
+      />
+      <Field
+        label="Repite la contraseña nueva"
+        value={repeatPin}
+        placeholder="6 dígitos"
+        keyboardType="number-pad"
+        secureTextEntry
+        maxLength={6}
+        onChangeText={(value) => { setRepeatPin(pinDigits(value)); setSaved(false) }}
+      />
+    </Frame>
+  )
+}
+
+export function WalletSettings({ brand }) {
+  const styles = useScreenStyles()
+  const { state, pop, patch } = useApp()
+  const user = sessionUser(state)
+  const name = brand === 'plin' ? 'Plin' : 'Yape'
+  const phoneKey = `${brand}Phone`
+  const enabledKey = `${brand}Enabled`
+  const qrKey = `${brand}Qr`
+  const [enabled, setEnabled] = useState(user?.[enabledKey] === true)
+  const [phone, setPhone] = useState(user?.[phoneKey] || '')
+  const [qr, setQr] = useState(user?.[qrKey] || '')
+  const [error, setError] = useState('')
+  const [dialog, setDialog] = useState('')
+
+  async function pickQr() {
+    setError('')
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!permission.granted) {
+        setError('Permite el acceso a tus fotos para seleccionar el QR.')
+        return
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        base64: true,
+        quality: 1,
+      })
+      if (result.canceled) return
+      const asset = result.assets[0]
+      if (!asset.base64) {
+        setError('No se pudo leer la imagen del QR. Intenta seleccionar otra.')
+        return
+      }
+      setQr(`data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`)
+    } catch (pickerError) {
+      setError(`No se pudo abrir la galería: ${pickerError.message}`)
+    }
+  }
+
+  function save() {
+    if (enabled) {
+      const digits = phone.replace(/\D/g, '')
+      if (digits.length !== 9 || !digits.startsWith('9')) {
+        setError(`El celular de ${name} debe tener 9 dígitos y empezar con 9.`)
+        return
+      }
+      setDialog('confirm')
+      return
+    }
+    commit()
+  }
+
+  function commit() {
+    const result = updateWallet(state, brand, { enabled, phone, qr })
+    if (!result.ok) {
+      setDialog('')
+      setError(result.error)
+      return
+    }
+    patch(() => result.state)
+    setError('')
+    setDialog('success')
+  }
+
+  return (
+    <Frame
+      onBack={() => pop()}
+      helpTopic="settings"
+      footer={<Button label="Guardar" onPress={save} />}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        {brand === 'plin' ? <PlinMark size={34} /> : <YapeMark size={34} />}
+        <Title>{name}</Title>
+      </View>
+      <Sub>Activa {name} para ofrecer esta opción al registrar pagos.</Sub>
+      <View style={styles.toggleCard}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.toggleTitle}>Activar {name}</Text>
+          <Text style={styles.toggleSub}>{enabled ? 'Billetera activada' : 'Desactivada'}</Text>
+        </View>
+        <Switch
+          value={enabled}
+          onValueChange={(value) => { setEnabled(value); setError('') }}
+          trackColor={{ true: colors.green, false: colors.line }}
+          thumbColor={colors.white}
+        />
+      </View>
+      {enabled ? (
+        <>
+          <Field
+            label={`Celular de ${name}`}
+            value={formatPhone(phone)}
+            placeholder="999 888 777"
+            keyboardType="number-pad"
+            onChangeText={(value) => { setPhone(value.replace(/\D/g, '').slice(0, 9)); setError('') }}
+          />
+          <Text style={styles.toggleTitle}>Sube tu QR</Text>
+          <Sub>Selecciona una imagen del QR de {name}. Es opcional.</Sub>
+          <Button label={qr ? 'Cambiar QR' : 'Subir QR'} variant="outline" onPress={pickQr} />
+          {qr ? (
+            <View style={{ alignItems: 'center', marginTop: 12 }}>
+              <Image
+                source={{ uri: qr }}
+                resizeMode="contain"
+                style={{ width: 220, height: 220, backgroundColor: colors.white }}
+                accessibilityLabel={`QR de ${name}`}
+              />
+              <Button label="Quitar QR" variant="outline" onPress={() => setQr('')} />
+            </View>
+          ) : null}
+        </>
+      ) : null}
+      <ErrorText>{error}</ErrorText>
+      {dialog === 'confirm' ? (
+        <ModalCard
+          title={`¿Estás seguro de registrar ${formatPhone(phone)} en ${name}?`}
+          body={qr ? `También se registrará el QR de ${name}.` : `El número se registrará sin un QR de ${name}.`}
+        >
+          <Button label="Cancelar" variant="outline" onPress={() => setDialog('')} />
+          <Button label="Sí, registrar" onPress={commit} />
+        </ModalCard>
+      ) : null}
+      {dialog === 'success' ? (
+        <ModalCard
+          title="Registro exitoso"
+          body={enabled
+            ? `Se registró el número ${formatPhone(phone)}${qr ? ` y el QR de ${name}.` : '.'}`
+            : `${name} quedó desactivado.`}
+        >
+          <Button label="Entendido" onPress={() => { setDialog(''); pop() }} />
+        </ModalCard>
+      ) : null}
+    </Frame>
   )
 }
 
@@ -492,22 +646,10 @@ export function Account() {
         </View>
       </View>
       <View style={styles.readyBanner}>
-        <Text style={styles.readyText}>✓  Tu cuenta está lista para anotar ventas.</Text>
+        <Text style={styles.readyText}>✓  Tu cuenta está activa.</Text>
       </View>
       <Button label="Configurar" onPress={() => push('settings')} />
       <View style={{ height: 14 }} />
-      <View style={styles.toggleCard}>
-        <View style={{ flex: 1, paddingRight: 12 }}>
-          <Text style={styles.toggleTitle}>Avisar si sales sin guardar</Text>
-          <Text style={styles.toggleSub}>Pregunta antes de dejar una venta a medias.</Text>
-        </View>
-        <Switch
-          value={state.settings.confirmLeave}
-          onValueChange={(value) => patch((current) => setSetting(current, 'confirmLeave', value))}
-          trackColor={{ true: colors.green, false: colors.line }}
-          thumbColor={colors.white}
-        />
-      </View>
       {askOut ? (
         <ModalCard
           title="¿Cerrar sesión?"
